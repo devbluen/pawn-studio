@@ -1,0 +1,619 @@
+{
+  "OnGameModeInit": {
+    "prefix": "OnGameModeInit",
+    "body": [
+      "public OnGameModeInit()",
+      "{",
+      "\t${1:SetGameModeText(\"${2:Gamemode}\");}",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the gamemode starts"
+  },
+  "OnGameModeExit": {
+    "prefix": "OnGameModeExit",
+    "body": [
+      "public OnGameModeExit()",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the gamemode ends"
+  },
+  "OnFilterScriptInit": {
+    "prefix": "OnFilterScriptInit",
+    "body": [
+      "public OnFilterScriptInit()",
+      "{",
+      "\tprint(\"${1:Filterscript carregado}\");",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the filterscript is loaded"
+  },
+  "OnFilterScriptExit": {
+    "prefix": "OnFilterScriptExit",
+    "body": [
+      "public OnFilterScriptExit()",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the filterscript is unloaded"
+  },
+  "OnPlayerConnect": {
+    "prefix": "OnPlayerConnect",
+    "body": [
+      "public OnPlayerConnect(playerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when a player connects to the server"
+  },
+  "OnPlayerDisconnect": {
+    "prefix": "OnPlayerDisconnect",
+    "body": [
+      "public OnPlayerDisconnect(playerid, reason)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when a player leaves the server (reason: 0 timeout, 1 quit, 2 kick/ban)"
+  },
+  "OnPlayerRequestClass": {
+    "prefix": "OnPlayerRequestClass",
+    "body": [
+      "public OnPlayerRequestClass(playerid, classid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player changes class in class selection"
+  },
+  "OnPlayerRequestSpawn": {
+    "prefix": "OnPlayerRequestSpawn",
+    "body": [
+      "public OnPlayerRequestSpawn(playerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player tries to spawn from class selection"
+  },
+  "OnPlayerSpawn": {
+    "prefix": "OnPlayerSpawn",
+    "body": [
+      "public OnPlayerSpawn(playerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player spawns"
+  },
+  "OnPlayerDeath": {
+    "prefix": "OnPlayerDeath",
+    "body": [
+      "public OnPlayerDeath(playerid, killerid, reason)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when a player dies"
+  },
+  "OnPlayerText": {
+    "prefix": "OnPlayerText",
+    "body": [
+      "public OnPlayerText(playerid, text[])",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player sends a chat message (return 0 to block it)"
+  },
+  "OnPlayerCommandText": {
+    "prefix": "OnPlayerCommandText",
+    "body": [
+      "public OnPlayerCommandText(playerid, cmdtext[])",
+      "{",
+      "\tif (!strcmp(cmdtext, \"/${1:command}\", true))",
+      "\t{",
+      "\t\t$0",
+      "\t\treturn 1;",
+      "\t}",
+      "\treturn 0;",
+      "}"
+    ],
+    "description": "Called when the player types a command (/command)"
+  },
+  "OnDialogResponse": {
+    "prefix": "OnDialogResponse",
+    "body": [
+      "public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])",
+      "{",
+      "\tswitch (dialogid)",
+      "\t{",
+      "\t\tcase ${1:DIALOG_ID}:",
+      "\t\t{",
+      "\t\t\tif (!response) return 1;",
+      "\t\t\t$0",
+      "\t\t}",
+      "\t}",
+      "\treturn 0;",
+      "}"
+    ],
+    "description": "Called when the player responds to a dialog"
+  },
+  "OnPlayerKeyStateChange": {
+    "prefix": "OnPlayerKeyStateChange",
+    "body": [
+      "public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)",
+      "{",
+      "\tif ((newkeys & ${1:KEY_FIRE}) && !(oldkeys & ${1:KEY_FIRE}))",
+      "\t{",
+      "\t\t$0",
+      "\t}",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player key state changes"
+  },
+  "OnPlayerStateChange": {
+    "prefix": "OnPlayerStateChange",
+    "body": [
+      "public OnPlayerStateChange(playerid, newstate, oldstate)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player state changes (on foot, driver, passenger...)"
+  },
+  "OnPlayerEnterVehicle": {
+    "prefix": "OnPlayerEnterVehicle",
+    "body": [
+      "public OnPlayerEnterVehicle(playerid, vehicleid, ispassenger)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player starts entering a vehicle"
+  },
+  "OnPlayerExitVehicle": {
+    "prefix": "OnPlayerExitVehicle",
+    "body": [
+      "public OnPlayerExitVehicle(playerid, vehicleid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player starts exiting a vehicle"
+  },
+  "OnPlayerClickTextDraw": {
+    "prefix": "OnPlayerClickTextDraw",
+    "body": [
+      "public OnPlayerClickTextDraw(playerid, Text:clickedid)",
+      "{",
+      "\tif (clickedid == ${1:Text:INVALID_TEXT_DRAW})",
+      "\t{",
+      "\t\t$0",
+      "\t}",
+      "\treturn 0;",
+      "}"
+    ],
+    "description": "Called when the player clicks a global textdraw"
+  },
+  "OnPlayerClickPlayerTextDraw": {
+    "prefix": "OnPlayerClickPlayerTextDraw",
+    "body": [
+      "public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)",
+      "{",
+      "\t$0",
+      "\treturn 0;",
+      "}"
+    ],
+    "description": "Called when the player clicks a player-textdraw"
+  },
+  "OnPlayerClickPlayer": {
+    "prefix": "OnPlayerClickPlayer",
+    "body": [
+      "public OnPlayerClickPlayer(playerid, clickedplayerid, CLICK_SOURCE:source)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player clicks another player in the TAB list"
+  },
+  "OnPlayerClickMap": {
+    "prefix": "OnPlayerClickMap",
+    "body": [
+      "public OnPlayerClickMap(playerid, Float:fX, Float:fY, Float:fZ)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player places a waypoint on the pause-menu map"
+  },
+  "OnPlayerEnterCheckpoint": {
+    "prefix": "OnPlayerEnterCheckpoint",
+    "body": [
+      "public OnPlayerEnterCheckpoint(playerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player enters the checkpoint"
+  },
+  "OnPlayerLeaveCheckpoint": {
+    "prefix": "OnPlayerLeaveCheckpoint",
+    "body": [
+      "public OnPlayerLeaveCheckpoint(playerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player leaves the checkpoint"
+  },
+  "OnPlayerPickUpPickup": {
+    "prefix": "OnPlayerPickUpPickup",
+    "body": [
+      "public OnPlayerPickUpPickup(playerid, pickupid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player picks up a pickup"
+  },
+  "OnPlayerTakeDamage": {
+    "prefix": "OnPlayerTakeDamage",
+    "body": [
+      "public OnPlayerTakeDamage(playerid, issuerid, Float:amount, weaponid, bodypart)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player takes damage"
+  },
+  "OnPlayerGiveDamage": {
+    "prefix": "OnPlayerGiveDamage",
+    "body": [
+      "public OnPlayerGiveDamage(playerid, damagedid, Float:amount, weaponid, bodypart)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player damages someone else"
+  },
+  "OnPlayerWeaponShot": {
+    "prefix": "OnPlayerWeaponShot",
+    "body": [
+      "public OnPlayerWeaponShot(playerid, weaponid, hittype, hitid, Float:fX, Float:fY, Float:fZ)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player fires a weapon"
+  },
+  "OnPlayerInteriorChange": {
+    "prefix": "OnPlayerInteriorChange",
+    "body": [
+      "public OnPlayerInteriorChange(playerid, newinteriorid, oldinteriorid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when the player interior changes"
+  },
+  "OnPlayerUpdate": {
+    "prefix": "OnPlayerUpdate",
+    "body": [
+      "public OnPlayerUpdate(playerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called on every client update (very frequent — keep it light)"
+  },
+  "OnVehicleSpawn": {
+    "prefix": "OnVehicleSpawn",
+    "body": [
+      "public OnVehicleSpawn(vehicleid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when a vehicle respawns"
+  },
+  "OnVehicleDeath": {
+    "prefix": "OnVehicleDeath",
+    "body": [
+      "public OnVehicleDeath(vehicleid, killerid)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called when a vehicle is destroyed"
+  },
+  "OnRconCommand": {
+    "prefix": "OnRconCommand",
+    "body": [
+      "public OnRconCommand(cmd[])",
+      "{",
+      "\t$0",
+      "\treturn 0;",
+      "}"
+    ],
+    "description": "Called when an RCON command is executed"
+  },
+  "OnRconLoginAttempt": {
+    "prefix": "OnRconLoginAttempt",
+    "body": [
+      "public OnRconLoginAttempt(ip[], password[], success)",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Called on an RCON login attempt"
+  },
+  "main": {
+    "prefix": "main",
+    "body": [
+      "main()",
+      "{",
+      "\t${0:print(\"Gamemode started\");}",
+      "}"
+    ],
+    "description": "Main function main()"
+  },
+  "Public function with forward": {
+    "prefix": "public",
+    "body": [
+      "forward ${1:FunctionName}(${2:playerid});",
+      "public ${1:FunctionName}(${2:playerid})",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Public function with its matching forward"
+  },
+  "Stock function": {
+    "prefix": "stock",
+    "body": [
+      "stock ${1:FunctionName}(${2:playerid})",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Stock function (only compiled when used)"
+  },
+  "Player loop (for)": {
+    "prefix": "forplayers",
+    "body": [
+      "for (new ${1:i} = 0, ${2:j} = GetPlayerPoolSize(); ${1:i} <= ${2:j}; ${1:i}++)",
+      "{",
+      "\tif (!IsPlayerConnected(${1:i})) continue;",
+      "\t$0",
+      "}"
+    ],
+    "description": "for loop over all connected players"
+  },
+  "Loop for": {
+    "prefix": "for",
+    "body": [
+      "for (new ${1:i} = 0; ${1:i} < ${2:MAX_PLAYERS}; ${1:i}++)",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "Simple for loop"
+  },
+  "foreach players": {
+    "prefix": "foreach",
+    "body": [
+      "foreach (new ${1:i} : ${2:Player})",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "foreach loop (y_iterate / foreach.inc) over an iterator"
+  },
+  "Enum with array": {
+    "prefix": "enum",
+    "body": [
+      "enum E_${1:PLAYER_DATA}",
+      "{",
+      "\tE_${2:NAME}[${3:MAX_PLAYER_NAME}],",
+      "\tFloat:E_${4:HEALTH},",
+      "\tE_${5:MONEY}",
+      "}",
+      "new ${6:PlayerData}[${7:MAX_PLAYERS}][E_${1:PLAYER_DATA}];",
+      "$0"
+    ],
+    "description": "Enum with E_ prefix and the array that uses it"
+  },
+  "format + SendClientMessage": {
+    "prefix": "format",
+    "body": [
+      "new ${1:string}[${2:144}];",
+      "format(${1:string}, sizeof ${1:string}, \"${3:{FFFFFF\\}Text %d}\", ${4:value});",
+      "SendClientMessage(${5:playerid}, ${6:-1}, ${1:string});",
+      "$0"
+    ],
+    "description": "Formats a string and sends it to the player"
+  },
+  "SendClientMessage": {
+    "prefix": "scm",
+    "body": [
+      "SendClientMessage(${1:playerid}, ${2:-1}, \"${3:Message}\");$0"
+    ],
+    "description": "Sends a message to the player"
+  },
+  "ShowPlayerDialog with switch": {
+    "prefix": "dialog",
+    "body": [
+      "ShowPlayerDialog(${1:playerid}, ${2:DIALOG_ID}, ${3|DIALOG_STYLE_MSGBOX,DIALOG_STYLE_INPUT,DIALOG_STYLE_LIST,DIALOG_STYLE_PASSWORD,DIALOG_STYLE_TABLIST,DIALOG_STYLE_TABLIST_HEADERS|}, \"${4:Title}\", \"${5:Item 1\\nItem 2}\", \"${6:Ok}\", \"${7:Cancel}\");",
+      "",
+      "// in OnDialogResponse:",
+      "case ${2:DIALOG_ID}:",
+      "{",
+      "\tif (!response) return 1;",
+      "\tswitch (listitem)",
+      "\t{",
+      "\t\tcase 0: {$0}",
+      "\t\tcase 1: {}",
+      "\t}",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Shows a dialog and the response case with switch(listitem)"
+  },
+  "CMD command (zcmd / Pawn.CMD)": {
+    "prefix": "cmd",
+    "body": [
+      "CMD:${1:command}(playerid, params[])",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "zcmd / Pawn.CMD style command"
+  },
+  "YCMD command (y_commands)": {
+    "prefix": "ycmd",
+    "body": [
+      "YCMD:${1:command}(playerid, params[], help)",
+      "{",
+      "\tif (help) return SendClientMessage(playerid, -1, \"${2:Command help.}\");",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "y_commands style command (YSI)"
+  },
+  "SetTimerEx + callback": {
+    "prefix": "settimerex",
+    "body": [
+      "SetTimerEx(\"${1:TimerName}\", ${2:1000}, ${3|false,true|}, \"${4:i}\", ${5:playerid});",
+      "",
+      "forward ${1:TimerName}(${5:playerid});",
+      "public ${1:TimerName}(${5:playerid})",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Timer with parameters and its matching public callback"
+  },
+  "SetTimer + callback": {
+    "prefix": "settimer",
+    "body": [
+      "SetTimer(\"${1:TimerName}\", ${2:1000}, ${3|true,false|});",
+      "",
+      "forward ${1:TimerName}();",
+      "public ${1:TimerName}()",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Global timer and its matching public callback"
+  },
+  "Include guard": {
+    "prefix": "guard",
+    "body": [
+      "#if defined _inc_${1:${TM_FILENAME_BASE}}",
+      "\t#endinput",
+      "#endif",
+      "#define _inc_${1:${TM_FILENAME_BASE}}",
+      "",
+      "$0"
+    ],
+    "description": "Protection against double inclusion (#if defined ... #endinput)"
+  },
+  "#include": {
+    "prefix": "#include",
+    "body": [
+      "#include <${1:a_samp}>$0"
+    ],
+    "description": "Includes an .inc file"
+  },
+  "#define": {
+    "prefix": "#define",
+    "body": [
+      "#define ${1:NAME} (${2:value})$0"
+    ],
+    "description": "Defines a constant/macro"
+  },
+  "hook (y_hooks)": {
+    "prefix": "hook",
+    "body": [
+      "hook ${1:OnPlayerConnect}(${2:playerid})",
+      "{",
+      "\t$0",
+      "\treturn 1;",
+      "}"
+    ],
+    "description": "Callback hook with y_hooks (YSI)"
+  },
+  "timer (y_timers)": {
+    "prefix": "timer",
+    "body": [
+      "timer ${1:TimerName}[${2:1000}](${3:playerid})",
+      "{",
+      "\t$0",
+      "}"
+    ],
+    "description": "y_timers style timer (YSI)"
+  },
+  "switch": {
+    "prefix": "switch",
+    "body": [
+      "switch (${1:value})",
+      "{",
+      "\tcase ${2:0}:",
+      "\t{",
+      "\t\t$0",
+      "\t}",
+      "\tdefault:",
+      "\t{",
+      "\t}",
+      "}"
+    ],
+    "description": "switch block with case and default"
+  },
+  "if IsPlayerConnected": {
+    "prefix": "ifcon",
+    "body": [
+      "if (!IsPlayerConnected(${1:playerid})) return ${2:0};$0"
+    ],
+    "description": "Returns if the player is not connected"
+  }
+}

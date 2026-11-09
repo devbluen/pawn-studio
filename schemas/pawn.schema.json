@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "pawn.json (Pawn Studio)",
+  "type": "object",
+  "definitions": {
+    "deps": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+      "additionalProperties": {
+        "type": "string",
+        "description": "Version requirement: \"^1.2.0\" (compatible updates), \"~1.2.0\" (patches), \"1.2.0\" (exact), \"latest\", \"tag:<name>\", \"branch:<name>\" or \"commit:<sha>\".",
+        "examples": ["^1.0.0", "~1.0.0", "1.0.0", "latest", "branch:master", "commit:a1b2c3d", "tag:r1-final"]
+      },
+      "defaultSnippets": [{ "label": "package", "body": { "${1:user}/${2:repo}": "${3:latest}" } }]
+    }
+  },
+  "properties": {
+    "name": { "type": "string", "description": "Project or package name." },
+    "version": { "type": "string", "description": "Project version (informative). Packages are versioned by their Git tags." },
+    "description": { "type": "string" },
+    "entry": { "type": "string", "description": "Main .pwn file (e.g. gamemodes/main.pwn). Used when compiling a file no entry file includes." },
+    "output": { "type": "string", "description": "Generated .amx file (default: next to the entry)." },
+    "dependencies": {
+      "$ref": "#/definitions/deps",
+      "description": "GitHub packages: { \"user/repo\": \"requirement\" }. Installed into dependencies/ and locked in pawn-lock.json."
+    },
+    "devDependencies": {
+      "$ref": "#/definitions/deps",
+      "description": "Packages used only during development (tests, debugging tools)."
+    },
+    "include": {
+      "description": "For package authors: folder(s) with the .inc files this package exports. Default: detected (include/ folders, otherwise the repository root).",
+      "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
+    },
+    "plugins": {
+      "description": "For package authors: release asset (glob) with the .dll/.so per platform, or false when the package has no binaries. Default: detected from the release file names.",
+      "oneOf": [
+        { "const": false },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "windows": { "type": "string", "description": "Glob of the Windows asset, e.g. \"myplugin-*-win32.zip\"." },
+            "linux": { "type": "string", "description": "Glob of the Linux asset, e.g. \"myplugin-*-linux.tar.gz\"." }
+          }
+        }
+      ]
+    }
+  }
+}

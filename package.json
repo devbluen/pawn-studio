@@ -1,0 +1,709 @@
+{
+  "name": "pawn-studio",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.5.2",
+  "publisher": "devbluen",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Debuggers",
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "pawn",
+    "samp",
+    "sa-mp",
+    "open.mp",
+    "omp",
+    "pawncc",
+    "gamemode",
+    "package manager",
+    "crashdetect"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:pawn",
+    "workspaceContains:**/*.pwn",
+    "workspaceContains:pawn.json",
+    "onDebugResolve:pawn",
+    "onDebugDynamicConfigurations:pawn"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "pawn",
+        "aliases": [
+          "Pawn",
+          "pawn"
+        ],
+        "extensions": [
+          ".pwn",
+          ".inc"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "pawn",
+        "scopeName": "source.pawn",
+        "path": "./syntaxes/pawn.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "pawn",
+        "path": "./snippets/pawn.json"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "pawn.json",
+        "url": "./schemas/pawn.schema.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "pawnStudio.compile",
+        "title": "%command.compile%",
+        "category": "Pawn",
+        "icon": "$(play)"
+      },
+      {
+        "command": "pawnStudio.compileFile",
+        "title": "%command.compileFile%",
+        "category": "Pawn"
+      },
+      {
+        "command": "pawnStudio.compileAll",
+        "title": "%command.compileAll%",
+        "category": "Pawn",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "pawnStudio.selectTarget",
+        "title": "%command.selectTarget%",
+        "category": "Pawn",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "pawnStudio.clearTarget",
+        "title": "%command.clearTarget%",
+        "category": "Pawn"
+      },
+      {
+        "command": "pawnStudio.showOutput",
+        "title": "%command.showOutput%",
+        "category": "Pawn",
+        "icon": "$(output)"
+      },
+      {
+        "command": "pawnStudio.packages.install",
+        "title": "%command.packages.install%",
+        "category": "Pawn",
+        "icon": "$(add)"
+      },
+      {
+        "command": "pawnStudio.packages.installAll",
+        "title": "%command.packages.installAll%",
+        "category": "Pawn",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "pawnStudio.packages.update",
+        "title": "%command.packages.update%",
+        "category": "Pawn",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "pawnStudio.packages.updateAll",
+        "title": "%command.packages.updateAll%",
+        "category": "Pawn",
+        "icon": "$(arrow-circle-up)"
+      },
+      {
+        "command": "pawnStudio.packages.remove",
+        "title": "%command.packages.remove%",
+        "category": "Pawn",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "pawnStudio.packages.openOnGitHub",
+        "title": "%command.packages.openOnGitHub%",
+        "category": "Pawn",
+        "icon": "$(github)"
+      },
+      {
+        "command": "pawnStudio.packages.checkUpdates",
+        "title": "%command.packages.checkUpdates%",
+        "category": "Pawn",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "pawnStudio.packages.refresh",
+        "title": "%command.packages.refresh%",
+        "category": "Pawn",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pawnStudio.packages.init",
+        "title": "%command.packages.init%",
+        "category": "Pawn"
+      },
+      {
+        "command": "pawnStudio.packages.signIn",
+        "title": "%command.packages.signIn%",
+        "category": "Pawn",
+        "icon": "$(github)"
+      },
+      {
+        "command": "pawnStudio.server.start",
+        "title": "%command.server.start%",
+        "category": "Pawn",
+        "icon": "$(debug-start)"
+      },
+      {
+        "command": "pawnStudio.server.startNoCompile",
+        "title": "%command.server.startNoCompile%",
+        "category": "Pawn",
+        "icon": "$(play-circle)"
+      },
+      {
+        "command": "pawnStudio.server.stop",
+        "title": "%command.server.stop%",
+        "category": "Pawn",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "pawnStudio.server.refresh",
+        "title": "%command.server.refresh%",
+        "category": "Pawn",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pawnStudio.server.clearErrors",
+        "title": "%command.server.clearErrors%",
+        "category": "Pawn",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "pawnStudio.server.openConfig",
+        "title": "%command.server.openConfig%",
+        "category": "Pawn",
+        "icon": "$(settings-gear)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "pawnStudio.compile",
+        "key": "f5",
+        "when": "!inDebugMode && (resourceExtname == .pwn || resourceExtname == .inc)"
+      },
+      {
+        "command": "pawnStudio.compile",
+        "key": "ctrl+shift+b",
+        "mac": "cmd+shift+b",
+        "when": "resourceExtname == .pwn || resourceExtname == .inc"
+      },
+      {
+        "command": "pawnStudio.server.start",
+        "key": "f6",
+        "when": "!inDebugMode && (resourceExtname == .pwn || resourceExtname == .inc)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pawnStudio",
+          "title": "%view.container%",
+          "icon": "media/pawn.svg"
+        }
+      ]
+    },
+    "views": {
+      "pawnStudio": [
+        {
+          "id": "pawnStudio.compile",
+          "name": "%view.compile%"
+        },
+        {
+          "id": "pawnStudio.packages",
+          "name": "%view.packages%"
+        },
+        {
+          "id": "pawnStudio.server",
+          "name": "%view.server%"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "pawnStudio.compile",
+        "contents": "%welcome.compile%",
+        "when": "!pawnStudio.hasCompiled"
+      },
+      {
+        "view": "pawnStudio.packages",
+        "contents": "%welcome.packages%",
+        "when": "!pawnStudio.hasManifest"
+      },
+      {
+        "view": "pawnStudio.server",
+        "contents": "%welcome.server%",
+        "when": "!pawnStudio.hasServer"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "pawnStudio.compile",
+          "when": "resourceExtname == .pwn || resourceExtname == .inc",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "pawnStudio.compile",
+          "when": "resourceExtname == .pwn || resourceExtname == .inc",
+          "group": "pawn@1"
+        },
+        {
+          "command": "pawnStudio.server.start",
+          "when": "resourceExtname == .pwn || resourceExtname == .inc",
+          "group": "pawn@2"
+        },
+        {
+          "command": "pawnStudio.selectTarget",
+          "when": "resourceExtname == .pwn || resourceExtname == .inc",
+          "group": "pawn@3"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "pawnStudio.compile",
+          "when": "view == pawnStudio.compile",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pawnStudio.compileAll",
+          "when": "view == pawnStudio.compile",
+          "group": "navigation@2"
+        },
+        {
+          "command": "pawnStudio.showOutput",
+          "when": "view == pawnStudio.compile",
+          "group": "navigation@3"
+        },
+        {
+          "command": "pawnStudio.packages.install",
+          "when": "view == pawnStudio.packages",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pawnStudio.packages.updateAll",
+          "when": "view == pawnStudio.packages && pawnStudio.hasManifest",
+          "group": "navigation@2"
+        },
+        {
+          "command": "pawnStudio.packages.checkUpdates",
+          "when": "view == pawnStudio.packages && pawnStudio.hasManifest",
+          "group": "navigation@3"
+        },
+        {
+          "command": "pawnStudio.packages.installAll",
+          "when": "view == pawnStudio.packages && pawnStudio.hasManifest",
+          "group": "navigation@4"
+        },
+        {
+          "command": "pawnStudio.packages.signIn",
+          "when": "view == pawnStudio.packages",
+          "group": "1_more"
+        },
+        {
+          "command": "pawnStudio.packages.refresh",
+          "when": "view == pawnStudio.packages",
+          "group": "1_more"
+        },
+        {
+          "command": "pawnStudio.server.start",
+          "when": "view == pawnStudio.server && !pawnStudio.serverRunning",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pawnStudio.server.stop",
+          "when": "view == pawnStudio.server && pawnStudio.serverRunning",
+          "group": "navigation@1"
+        },
+        {
+          "command": "pawnStudio.server.openConfig",
+          "when": "view == pawnStudio.server",
+          "group": "navigation@2"
+        },
+        {
+          "command": "pawnStudio.server.refresh",
+          "when": "view == pawnStudio.server",
+          "group": "navigation@3"
+        },
+        {
+          "command": "pawnStudio.server.startNoCompile",
+          "when": "view == pawnStudio.server",
+          "group": "1_more"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "pawnStudio.packages.update",
+          "when": "view == pawnStudio.packages && viewItem =~ /^pkg\\.outdated/",
+          "group": "inline@1"
+        },
+        {
+          "command": "pawnStudio.packages.openOnGitHub",
+          "when": "view == pawnStudio.packages && viewItem =~ /^pkg\\./",
+          "group": "inline@2"
+        },
+        {
+          "command": "pawnStudio.packages.remove",
+          "when": "view == pawnStudio.packages && viewItem =~ /^pkg\\.[a-z]+$/",
+          "group": "inline@3"
+        },
+        {
+          "command": "pawnStudio.packages.installAll",
+          "when": "view == pawnStudio.packages && viewItem =~ /^pkg\\.missing/",
+          "group": "inline@1"
+        },
+        {
+          "command": "pawnStudio.packages.update",
+          "when": "view == pawnStudio.packages && viewItem =~ /^pkg\\.(installed|outdated)/",
+          "group": "1_actions@1"
+        },
+        {
+          "command": "pawnStudio.packages.remove",
+          "when": "view == pawnStudio.packages && viewItem =~ /^pkg\\.[a-z]+$/",
+          "group": "1_actions@2"
+        },
+        {
+          "command": "pawnStudio.server.clearErrors",
+          "when": "view == pawnStudio.server && viewItem == runtimeErrors",
+          "group": "inline"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "pawnStudio.packages.update",
+          "when": "false"
+        },
+        {
+          "command": "pawnStudio.packages.remove",
+          "when": "false"
+        },
+        {
+          "command": "pawnStudio.packages.openOnGitHub",
+          "when": "false"
+        }
+      ]
+    },
+    "debuggers": [
+      {
+        "type": "pawn",
+        "label": "%debugger.label%",
+        "languages": [
+          "pawn"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "compile": {
+                "type": "boolean",
+                "default": true,
+                "description": "%debugger.compile%"
+              },
+              "target": {
+                "type": "string",
+                "description": "%debugger.target%"
+              },
+              "serverPath": {
+                "type": "string",
+                "description": "%debugger.serverPath%"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "%debugger.args%"
+              },
+              "logFile": {
+                "type": "string",
+                "description": "%debugger.logFile%"
+              },
+              "stopOnError": {
+                "type": "boolean",
+                "default": true,
+                "description": "%debugger.stopOnError%"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "pawn",
+            "request": "launch",
+            "name": "SA-MP / open.mp Server",
+            "compile": true
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "%debugger.snippet.label%",
+            "description": "%debugger.snippet.description%",
+            "body": {
+              "type": "pawn",
+              "request": "launch",
+              "name": "SA-MP / open.mp Server",
+              "compile": true
+            }
+          }
+        ]
+      }
+    ],
+    "colors": [
+      {
+        "id": "pawnStudio.errorLensErrorForeground",
+        "description": "%color.errorLensErrorForeground%",
+        "defaults": {
+          "dark": "#ff6464",
+          "light": "#e45454",
+          "highContrast": "#ff6464"
+        }
+      },
+      {
+        "id": "pawnStudio.errorLensErrorBackground",
+        "description": "%color.errorLensErrorBackground%",
+        "defaults": {
+          "dark": "#e454541b",
+          "light": "#e4545414",
+          "highContrast": "#e4545433"
+        }
+      },
+      {
+        "id": "pawnStudio.errorLensWarningForeground",
+        "description": "%color.errorLensWarningForeground%",
+        "defaults": {
+          "dark": "#fa973a",
+          "light": "#ab6d1d",
+          "highContrast": "#fa973a"
+        }
+      },
+      {
+        "id": "pawnStudio.errorLensWarningBackground",
+        "description": "%color.errorLensWarningBackground%",
+        "defaults": {
+          "dark": "#ff942f18",
+          "light": "#ff942f14",
+          "highContrast": "#ff942f33"
+        }
+      },
+      {
+        "id": "pawnStudio.errorLensInfoForeground",
+        "description": "%color.errorLensInfoForeground%",
+        "defaults": {
+          "dark": "#00b7e4",
+          "light": "#00b7e4",
+          "highContrast": "#00b7e4"
+        }
+      },
+      {
+        "id": "pawnStudio.errorLensInfoBackground",
+        "description": "%color.errorLensInfoBackground%",
+        "defaults": {
+          "dark": "#00b7e412",
+          "light": "#00b7e412",
+          "highContrast": "#00b7e433"
+        }
+      }
+    ],
+    "configuration": [
+      {
+        "title": "%config.section.compilation%",
+        "properties": {
+          "pawnStudio.compilerPath": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%config.compilerPath%"
+          },
+          "pawnStudio.includePaths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "%config.includePaths%"
+          },
+          "pawnStudio.args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "-;+",
+              "-(+",
+              "-d3"
+            ],
+            "markdownDescription": "%config.args%"
+          },
+          "pawnStudio.outputDirectory": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%config.outputDirectory%"
+          },
+          "pawnStudio.entry": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%config.entry%"
+          },
+          "pawnStudio.saveBeforeCompile": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.saveBeforeCompile%"
+          },
+          "pawnStudio.lintOnSave": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.lintOnSave%"
+          },
+          "pawnStudio.revealOutput": {
+            "type": "string",
+            "enum": [
+              "always",
+              "onError",
+              "never"
+            ],
+            "default": "onError",
+            "markdownDescription": "%config.revealOutput%",
+            "enumDescriptions": [
+              "%config.revealOutput.enum.always%",
+              "%config.revealOutput.enum.onError%",
+              "%config.revealOutput.enum.never%"
+            ]
+          },
+          "pawnStudio.entryExclude": {
+            "type": "string",
+            "default": "**/{node_modules,dependencies,.git,pawno,qawno}/**",
+            "markdownDescription": "%config.entryExclude%"
+          }
+        }
+      },
+      {
+        "title": "%config.section.error-lens-and-live-checking%",
+        "properties": {
+          "pawnStudio.errorLens.enabled": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.errorLens.enabled%"
+          },
+          "pawnStudio.errorLens.showWarnings": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.errorLens.showWarnings%"
+          },
+          "pawnStudio.errorLens.allLanguages": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%config.errorLens.allLanguages%"
+          },
+          "pawnStudio.lint.quick": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.lint.quick%"
+          },
+          "pawnStudio.lint.onType": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.lint.onType%"
+          },
+          "pawnStudio.lint.delay": {
+            "type": "number",
+            "default": 1500,
+            "minimum": 200,
+            "markdownDescription": "%config.lint.delay%"
+          }
+        }
+      },
+      {
+        "title": "%config.section.server-and-packages%",
+        "properties": {
+          "pawnStudio.server.path": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%config.server.path%"
+          },
+          "pawnStudio.packages.checkUpdatesOnStartup": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.packages.checkUpdatesOnStartup%"
+          }
+        }
+      },
+      {
+        "title": "%config.section.intellisense%",
+        "properties": {
+          "pawnStudio.completion.parameters": {
+            "type": "string",
+            "enum": [
+              "required",
+              "all",
+              "none"
+            ],
+            "enumDescriptions": [
+              "%config.completion.parameters.enum.required%",
+              "%config.completion.parameters.enum.all%",
+              "%config.completion.parameters.enum.none%"
+            ],
+            "default": "required",
+            "markdownDescription": "%config.completion.parameters%"
+          },
+          "pawnStudio.language": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "en",
+              "pt-br"
+            ],
+            "default": "auto",
+            "markdownDescription": "%config.language%",
+            "enumDescriptions": [
+              "%config.language.enum.auto%",
+              "%config.language.enum.en%",
+              "%config.language.enum.pt-br%"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "tsc -p ./ && node test/run.js && node test/grammar.js && node test/i18n.js",
+    "test:live": "tsc -p ./ && node test/live.js",
+    "package": "vsce package --allow-missing-repository --no-rewrite-relative-links",
+    "test:vscode": "tsc -p ./ && node test/vscode/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@types/vscode": "^1.80.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.4.0",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  },
+  "l10n": "./l10n"
+}
