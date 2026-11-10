@@ -100,5 +100,6 @@
   "config.server.compileBeforeStart.ifChanged": "Só quando algum arquivo mudou depois da última compilação (padrão)",
   "config.server.compileBeforeStart.always": "Sempre compilar",
   "config.server.compileBeforeStart.ask": "Perguntar toda vez",
-  "config.server.compileBeforeStart.never": "Nunca (só quando ainda não existe o .amx)"
+  "config.server.compileBeforeStart.never": "Nunca (só quando ainda não existe o .amx)",
+  "config.packages.copyIncludes": "Copiar também os `.inc` dos pacotes instalados para o `pawno/include` (SA-MP) ou `qawno/include` (open.mp) do servidor, para o pawno/qawno e outras ferramentas acharem. Arquivos que já estavam lá e não foram instalados pelo Pawn Studio nunca são sobrescritos."
 }

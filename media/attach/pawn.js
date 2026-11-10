@@ -150,7 +150,7 @@ export function generateVehicle(slots, vehicleModel, options = {}) {
 export function parseVehicle(code) {
     const out = [];
     const models = new Map();
-    const re = /([\w\[\]]+)\s*=\s*Create(?:Dynamic)?Object\s*\(\s*(\d+)|Attach(?:Dynamic)?ObjectToVehicle\s*\(([^;]*?)\)\s*;/gi;
+    const re = /([\w\[\]]+)\s*=\s*Create(?:Dynamic)?Object\s*\(\s*(-?\d+)|Attach(?:Dynamic)?ObjectToVehicle\s*\(([^;]*?)\)\s*;/gi;
     let m;
     while ((m = re.exec(code))) {
         if (m[1]) {

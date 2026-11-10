@@ -45,6 +45,11 @@ export interface ManagerOptions {
     depsDir?: string; // default: <root>/.pawn-studio/dependencies
     /** Packages skipped when they come as transitive dependencies (e.g. the stdlib, already in pawno/include). */
     skipTransitive?: string[];
+    /**
+     * Also copy each package's .inc files to this folder (the server's pawno/include or qawno/include),
+     * so pawno/qawno and other tools find them. Default: detected from the server; false = do not copy.
+     */
+    copyIncludesTo?: string | false;
     log?: (msg: string) => void;
 }
 
@@ -477,10 +482,12 @@ export class PackageManager {
             entry = existing;
             entry.requirement = requirement;
             this.log(`✓ ${t('{0} ({1}) already installed', displayName(n), entry.ref)}`);
+            this.copyIncludes(entry, lock); // installs from older versions get their copies too
         } else {
             const target = ctx.pinned ?? (await this.resolve(n, requirement, stillOk ? existing : undefined, ctx.force));
             entry = await this.fetchAndInstall(n, requirement, target, existing, lock);
             lock.packages[key] = entry;
+            this.copyIncludes(entry, lock);
             this.log(this.summary(n, entry));
         }
         entry.direct = direct;
@@ -756,18 +763,93 @@ export class PackageManager {
         return `✔ ${displayName(n)} ${e.ref}${e.target ? ` [${e.target}]` : ''}: ${parts.length ? parts.join(' · ') : t('installed (no plugin or include found)')}`;
     }
 
+    /** The compiler include folder of the server (pawno/include or qawno/include), or undefined. */
+    includeCopyDir(): string | undefined {
+        if (this.opts.copyIncludesTo === false) return undefined;
+        if (this.opts.copyIncludesTo) return this.opts.copyIncludesTo;
+        const server = this.opts.server;
+        if (!server) return undefined;
+        const order = server.kind === 'openmp' ? ['qawno', 'pawno'] : ['pawno', 'qawno'];
+        for (const c of order) if (fs.existsSync(path.join(server.dir, c))) return path.join(server.dir, c, 'include');
+        return path.join(server.dir, order[0], 'include');
+    }
+
+    /**
+     * Copies the package's .inc files (keeping sub-folders, e.g. YSI_Coding/y_hooks.inc) into the
+     * server's include folder. Files already there that no package put there are never overwritten.
+     */
+    private copyIncludes(e: LockEntry, lock: LockFile): void {
+        const dest = this.includeCopyDir();
+        if (!dest) return;
+        const rel = (p: string) => path.relative(this.root, p).split(path.sep).join('/');
+        const ownedByAny = new Set(Object.values(lock.packages).flatMap((o) => o.files.map((f) => f.toLowerCase())));
+        const SKIP = /^(\.git|\.github|tests?|examples?|docs?|src|deps|lib|libs|third_party|external|cmake|build|samp-sdk|omp-sdk|sdk|\.resources)$/i;
+        const pkgDir = path.resolve(this.root, e.dir);
+        let copied = 0;
+        const kept: string[] = [];
+        for (const inc of e.includePaths) {
+            const base = path.resolve(this.root, inc);
+            // the package root as include folder: only its own .inc files and include-like folders, not its source tree
+            const walk = (dir: string, depth: number) => {
+                let items: fs.Dirent[];
+                try {
+                    items = fs.readdirSync(dir, { withFileTypes: true });
+                } catch {
+                    return;
+                }
+                for (const it of items) {
+                    const abs = path.join(dir, it.name);
+                    if (it.isDirectory()) {
+                        if (depth < 4 && !(SKIP.test(it.name) && dir !== base) && !(base === pkgDir && SKIP.test(it.name))) walk(abs, depth + 1);
+                        continue;
+                    }
+                    if (!/\.inc$/i.test(it.name)) continue;
+                    const target = path.join(dest, path.relative(base, abs));
+                    const key = rel(target).toLowerCase();
+                    if (fs.existsSync(target) && !ownedByAny.has(key) && !e.files.some((f) => f.toLowerCase() === key)) {
+                        kept.push(path.relative(dest, target).split(path.sep).join('/'));
+                        continue;
+                    }
+                    try {
+                        fs.mkdirSync(path.dirname(target), { recursive: true });
+                        fs.copyFileSync(abs, target);
+                        if (!e.files.some((f) => f.toLowerCase() === key)) e.files.push(rel(target));
+                        copied++;
+                    } catch {
+                        this.log(`  ⚠ ${t('Could not write {0}', rel(target))}`);
+                    }
+                }
+            };
+            walk(base, 0);
+        }
+        if (copied) this.log(`  + ${t('{0} include file(s) in {1}', copied, rel(dest) || dest)}`);
+        if (kept.length) this.log(`  · ${t('Kept the existing {0} in {1} (not installed by Pawn Studio)', kept.slice(0, 3).join(', ') + (kept.length > 3 ? '…' : ''), rel(dest))}`);
+    }
+
     private uninstallFiles(e: LockEntry, lock: LockFile): void {
         const server = this.opts.server;
         const others = Object.values(lock.packages).filter((o) => depKey(o) !== depKey(e));
         for (const name of e.plugins) {
             if (server && !others.some((o) => o.plugins.includes(name))) setServerPlugin(server, name, false);
         }
+        const incDir = this.includeCopyDir();
         for (const f of e.files) {
             if (others.some((o) => o.files.includes(f))) continue; // shared runtime library
+            const abs = path.resolve(this.root, f);
             try {
-                fs.rmSync(path.resolve(this.root, f), { force: true });
+                fs.rmSync(abs, { force: true });
             } catch {
                 this.log(`  ⚠ ${t('Could not delete {0} (is the server running?)', f)}`);
+                continue;
+            }
+            // empty folders left in the include folder (YSI_Coding/…)
+            for (let d = path.dirname(abs); incDir && d.startsWith(incDir + path.sep); d = path.dirname(d)) {
+                try {
+                    if (fs.readdirSync(d).length) break;
+                    fs.rmdirSync(d);
+                } catch {
+                    break;
+                }
             }
         }
     }

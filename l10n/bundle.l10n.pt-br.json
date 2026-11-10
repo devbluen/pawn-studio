@@ -682,5 +682,10 @@
   "Packages moved from dependencies/ to {0}/": "Pacotes movidos de dependencies/ para {0}/",
   "Using the {0} folder of the archive": "Usando a pasta {0} do arquivo",
   "{0} has no folder for this server": "{0} não tem uma pasta para este servidor",
-  "\"layout\": {0} not found in {1}": "\"layout\": {0} não encontrado em {1}"
+  "\"layout\": {0} not found in {1}": "\"layout\": {0} não encontrado em {1}",
+  "Could not write {0}": "Não foi possível escrever {0}",
+  "{0} include file(s) in {1}": "{0} arquivo(s) de include em {1}",
+  "Kept the existing {0} in {1} (not installed by Pawn Studio)": "Mantido o {0} que já existia em {1} (não instalado pelo Pawn Studio)",
+  "The tag {0} has a different pawn.json: this check uses the one in this folder (what your next tag will publish). Until then, installers use the tag's.": "A tag {0} tem outro pawn.json: esta conferência usa o desta pasta (o que a sua próxima tag vai publicar). Até lá, quem instalar usa o da tag.",
+  "custom · {0}": "personalizado · {0}"
 }

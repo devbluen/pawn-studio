@@ -141,6 +141,10 @@ In the Pawn sidebar, open **Packages** and click `+`:
 - plugins, components and libraries go to the server, as described above;
 - plugins are registered in `server.cfg` (SA-MP) or `config.json` (open.mp);
 - the include folders go to the compiler and to IntelliSense, with no configuration;
+- the `.inc` files are also copied to the server's `pawno/include` (SA-MP) or `qawno/include` (open.mp),
+  so pawno/qawno and other tools find them. A file that was already there and that Pawn Studio did
+  not install is never overwritten, and the copies go away with the package. Turn it off with
+  `pawnStudio.packages.copyIncludes`;
 - packages that the package itself lists in its `pawn.json` are installed too. If your project asks
   for a different version of the same package, your version wins.
 
@@ -608,6 +612,12 @@ copy of the game later, click **Change folder** at the top right of the finders,
   your game. With the cursor on `SetPlayerAttachedObject` or `AttachObjectToVehicle` lines (or with them
   selected), run **Pawn: Attached Objects** or use the right-click menu: they open in the editor, and
   **Insert all in the editor** writes the result back. Shortcuts: W move, E rotate, R scale, F focus.
+- **Custom skins and models:** the game models are read the way the game loads them: first the
+  `modloader/` folder (loose `.dff`/`.txd`, and new skin ids from its `.ide` files), then the extra IMGs
+  in `data/gta.dat`, then the stock archives. So a skin replaced with modloader or inside `gta3.img`
+  shows up in place of the original, in the attachment editor and in the animation preview. The
+  server's own models also appear, marked *custom*: `AddCharModel` (skins 20001+) and `AddSimpleModel`
+  (objects, negative ids) from `models/artconfig.txt` or from the gamemode code.
 - **Which sounds play:** the link between a sound ID and the audio banks is built into `gta_sa.exe`.
   The extension ships that table, rebuilt from the reverse-engineered game code
   ([gta-reversed](https://github.com/gta-reversed/gta-reversed)). Each ID is marked:

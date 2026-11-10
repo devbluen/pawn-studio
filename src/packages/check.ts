@@ -71,7 +71,10 @@ export async function run(pawn: Pick<Pawn, "github">, owner: string, name: strin
         tagged = undefined;
     }
     if (!tagged && local) log(`⚠ ${t('The tag {0} has no pawn.json: installers use automatic detection until you publish a tag that contains it.', release.tag_name)}`);
-    const pkg = tagged ?? local;
+    // the folder's pawn.json is what the next tag publishes: check that one, and say when the tag differs
+    if (tagged && local && JSON.stringify(tagged) !== JSON.stringify(local))
+        log(`⚠ ${t('The tag {0} has a different pawn.json: this check uses the one in this folder (what your next tag will publish). Until then, installers use the tag\'s.', release.tag_name)}`);
+    const pkg = local ?? tagged;
     const supports = supportsOf(pkg?.supports);
     log(`• ${t('Made for: {0}', supports.map((s) => SERVER_NAME[s]).join(' + '))}${pkg?.supports ? '' : ` (${t('default, "supports" not set')})`}`);
 
@@ -166,7 +169,8 @@ export async function run(pawn: Pick<Pawn, "github">, owner: string, name: strin
         }
     }
     log('');
-    if (supports.includes('openmp') && !pkg?.components && [...cache.values()].every((f) => !f.some((x) => /[\\/]components[\\/]/i.test(x))))
+    const layoutComponents = !!(pkg?.layout?.openmp?.components || pkg?.layout?.all?.components);
+    if (supports.includes('openmp') && !pkg?.components && !layoutComponents && [...cache.values()].every((f) => !f.some((x) => /[\\/]components[\\/]/i.test(x))))
         log(`• ${t('open.mp uses your plugin as a legacy plugin. To ship a native component, put it in components/ inside the archive, or publish a separate file and point "components" at it.')}`);
     log(problems ? `⚠ ${t('{0} target(s) need attention.', problems)}` : `✔ ${t('Every target gets its files.')}`);
     fs.rmSync(tmp, { recursive: true, force: true });

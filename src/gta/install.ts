@@ -85,8 +85,52 @@ export interface LoadedModel {
     textures: Record<string, string>;
 }
 
+/** Loose .dff/.txd files of a folder tree (modloader), read like an IMG archive by file name. */
+export class LooseFolder {
+    private byName = new Map<string, string>();
+
+    constructor(readonly file: string) {
+        const walk = (dir: string, depth: number) => {
+            let items: fs.Dirent[];
+            try {
+                items = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+            } catch {
+                return;
+            }
+            for (const it of items) {
+                const abs = path.join(dir, it.name);
+                // modloader ignores folders starting with "." (disabled mods)
+                if (it.isDirectory()) {
+                    if (depth < 8 && !it.name.startsWith('.')) walk(abs, depth + 1);
+                } else if (/\.(dff|txd)$/i.test(it.name) && !this.byName.has(it.name.toLowerCase())) this.byName.set(it.name.toLowerCase(), abs);
+            }
+        };
+        walk(file, 0);
+    }
+
+    get size(): number {
+        return this.byName.size;
+    }
+
+    has(name: string): boolean {
+        return this.byName.has(name.toLowerCase());
+    }
+
+    read(name: string): Buffer | undefined {
+        const f = this.byName.get(name.toLowerCase());
+        if (!f) return undefined;
+        try {
+            return fs.readFileSync(f);
+        } catch {
+            return undefined;
+        }
+    }
+}
+
+type AssetSource = ImgArchive | LooseFolder;
+
 export class GtaInstall {
-    private imgs?: ImgArchive[];
+    private imgs?: AssetSource[];
     private _objects?: ObjectDef[];
     private _sprites?: SpriteLibrary[];
     private _anims?: Map<string, { load: () => AnimPackage; summary: AnimLibrary }>;
@@ -102,21 +146,45 @@ export class GtaInstall {
 
     constructor(readonly dir: string) {}
 
-    private archives(): ImgArchive[] {
+    /**
+     * Where models are read from, in the game's priority: modloader/ (loose files, like the
+     * modloader.asi mod), the extra IMGs listed in data/gta.dat, then the stock archives.
+     */
+    private archives(): AssetSource[] {
         if (!this.imgs) {
-            this.imgs = ['SAMP/SAMP.img', 'SAMP/custom.img', 'models/gta3.img', 'models/gta_int.img', 'models/player.img']
-                .map((rel) => resolveCi(this.dir, rel))
-                .filter((f): f is string => !!f)
-                .map((f) => {
-                    try {
-                        return ImgArchive.open(f);
-                    } catch {
-                        return undefined;
-                    }
-                })
-                .filter((a): a is ImgArchive => !!a);
+            const out: AssetSource[] = [];
+            const ml = resolveCi(this.dir, 'modloader');
+            if (ml && fs.statSync(ml).isDirectory()) {
+                const loose = new LooseFolder(ml);
+                if (loose.size) out.push(loose);
+            }
+            const stock = ['SAMP/SAMP.img', 'SAMP/custom.img', 'models/gta3.img', 'models/gta_int.img', 'models/player.img'];
+            // IMG lines of gta.dat added by mods (skins.img…); the stock ones are already in the list
+            const extra: string[] = [];
+            const dat = resolveCi(this.dir, 'data/gta.dat');
+            if (dat) {
+                for (const m of fs.readFileSync(dat, 'latin1').matchAll(/^\s*IMG\s+(\S+)/gim)) {
+                    const rel = m[1].replace(/\\/g, '/');
+                    if (!/\/(carrec|script|cutscene)\.img$/i.test(rel) && !stock.some((s) => s.toLowerCase() === rel.toLowerCase())) extra.push(rel);
+                }
+            }
+            for (const rel of [...extra, ...stock]) {
+                const f = resolveCi(this.dir, rel);
+                if (!f) continue;
+                try {
+                    out.push(ImgArchive.open(f));
+                } catch {
+                    /* unreadable archive */
+                }
+            }
+            this.imgs = out;
         }
         return this.imgs;
+    }
+
+    /** Where a model file comes from (archive or modloader path), for the UI. */
+    sourceOf(name: string): string | undefined {
+        return this.archiveOf(name);
     }
 
     private readAsset(name: string): Buffer | undefined {
@@ -151,7 +219,8 @@ export class GtaInstall {
 
     private archiveOf(name: string): string | undefined {
         const a = this.archives().find((x) => x.has(name));
-        return a && path.basename(a.file);
+        if (!a) return undefined;
+        return a instanceof LooseFolder ? `modloader · ${name}` : path.basename(a.file);
     }
 
     private txd(name: string): Texture[] {
@@ -212,7 +281,7 @@ export class GtaInstall {
     placements(): Placement[] {
         if (!this._placements) {
             const f = resolveCi(this.dir, 'models/gta3.img');
-            this._placements = loadPlacements(this.dir, this.archives().find((a) => a.file === f));
+            this._placements = loadPlacements(this.dir, this.archives().find((a): a is ImgArchive => a instanceof ImgArchive && a.file === f));
         }
         return this._placements;
     }
@@ -376,8 +445,22 @@ export class GtaInstall {
     skins(): SkinDef[] {
         if (!this._skins) {
             const out: SkinDef[] = [];
-            for (const rel of ['data/peds.ide', 'SAMP/SAMP.ide']) {
-                const f = resolveCi(this.dir, rel);
+            // peds of mods in modloader/ (new skin ids) come after the stock ones; a repeated id is replaced
+            const ml = resolveCi(this.dir, 'modloader');
+            const modIdes: string[] = [];
+            const walk = (d: string, depth: number) => {
+                try {
+                    for (const it of fs.readdirSync(d, { withFileTypes: true })) {
+                        if (it.isDirectory() && depth < 8 && !it.name.startsWith('.')) walk(path.join(d, it.name), depth + 1);
+                        else if (/\.ide$/i.test(it.name)) modIdes.push(path.join(d, it.name));
+                    }
+                } catch {
+                    /* unreadable */
+                }
+            };
+            if (ml) walk(ml, 0);
+            for (const rel of ['data/peds.ide', 'SAMP/SAMP.ide', ...modIdes]) {
+                const f = path.isAbsolute(rel) ? rel : resolveCi(this.dir, rel);
                 if (!f) continue;
                 let section = '';
                 for (const raw of fs.readFileSync(f, 'latin1').split(/\r?\n/)) {
@@ -388,7 +471,12 @@ export class GtaInstall {
                     }
                     if (section !== 'peds') continue;
                     const p = line.split(',').map((s) => s.trim());
-                    if (p.length > 2 && /^\d+$/.test(p[0])) out.push({ id: +p[0], model: p[1], txd: p[2] });
+                    if (p.length > 2 && /^\d+$/.test(p[0])) {
+                        // a mod that redefines an id replaces it
+                        const i = out.findIndex((x) => x.id === +p[0]);
+                        if (i >= 0) out.splice(i, 1);
+                        out.push({ id: +p[0], model: p[1], txd: p[2] });
+                    }
                 }
             }
             this._skins = out;

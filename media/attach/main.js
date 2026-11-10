@@ -32,7 +32,7 @@ document.getElementById('app').outerHTML = `
             <div class="player-only">
                 <div class="model-nav no-source">
                     <button id="at-skin-prev" class="btn icon" title="${t('atPrevSkin')}">‹</button>
-                    <input id="at-skin" type="number" min="0" max="311" value="7" title="${t('atSkinId')}">
+                    <input id="at-skin" type="number" min="0" value="7" title="${t('atSkinId')}">
                     <button id="at-skin-next" class="btn icon" title="${t('atNextSkin')}">›</button>
                 </div>
                 <div class="search">
@@ -83,7 +83,7 @@ document.getElementById('app').outerHTML = `
             <div class="field">
                 <label>${t('atModel')}</label>
                 <div class="inline">
-                    <input id="at-model" type="number" min="0" class="model-input" title="${t('atObjectId')}">
+                    <input id="at-model" type="number" class="model-input" title="${t('atObjectId')}">
                     <div class="search grow">
                         <input id="at-model-search" type="search" placeholder="${t('atSearchObject')}" autocomplete="off">
                         <ul class="results" id="at-model-results"></ul>

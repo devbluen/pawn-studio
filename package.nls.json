@@ -100,5 +100,6 @@
   "config.server.compileBeforeStart.ifChanged": "Only when a file changed after the last build (default)",
   "config.server.compileBeforeStart.always": "Always compile",
   "config.server.compileBeforeStart.ask": "Ask every time",
-  "config.server.compileBeforeStart.never": "Never (only when there is no .amx yet)"
+  "config.server.compileBeforeStart.never": "Never (only when there is no .amx yet)",
+  "config.packages.copyIncludes": "Also copy the `.inc` files of installed packages to the server's `pawno/include` (SA-MP) or `qawno/include` (open.mp), so pawno/qawno and other tools find them. Files already there that Pawn Studio did not install are never overwritten."
 }

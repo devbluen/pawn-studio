@@ -2,7 +2,7 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "publisher": "devbluen",
   "license": "MIT",
   "repository": {
@@ -814,6 +814,11 @@
             "type": "boolean",
             "default": true,
             "markdownDescription": "%config.packages.checkUpdatesOnStartup%"
+          },
+          "pawnStudio.packages.copyIncludes": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "%config.packages.copyIncludes%"
           }
         }
       },

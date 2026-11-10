@@ -4,6 +4,7 @@
  */
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 const { findGtaDir, GtaInstall } = require('../out/gta/install');
 const { parseDff } = require('../out/gta/dff');
 
@@ -143,6 +144,24 @@ t('object positions: Idlewood gas pumps with their rotation', () => {
   const pumps = gta.placements().filter((p) => p.id === 1676 && Math.abs(p.x - 1941.6563) < 0.01);
   assert.strictEqual(pumps.length, 4);
   assert.deepStrictEqual(objectRotation(pumps[0].rot), [0, 0, -90]);
+});
+
+t('a modloader skin replaces the one in gta3.img (attachment editor)', () => {
+  const os = require('os');
+  const { GtaInstall } = require('../out/gta/install');
+  const { ImgArchive } = require('../out/gta/img');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pawn-game-'));
+  fs.mkdirSync(path.join(tmp, 'data'), { recursive: true });
+  fs.mkdirSync(path.join(tmp, 'modloader/MySkin'), { recursive: true });
+  fs.copyFileSync(path.join(gta.dir, 'data/peds.ide'), path.join(tmp, 'data/peds.ide'));
+  const img = ImgArchive.open(path.join(gta.dir, 'models/gta3.img'));
+  fs.writeFileSync(path.join(tmp, 'modloader/MySkin/male01.dff'), img.read('male01.dff'));
+  fs.writeFileSync(path.join(tmp, 'modloader/MySkin/male01.txd'), img.read('male01.txd'));
+  const fake = new GtaInstall(tmp);
+  const r = fake.rawModel(7);
+  assert.ok(r, 'skin 7 found without any IMG archive');
+  assert.match(r.origin, /^modloader/);
+  assert.ok(r.textures.length >= 1);
 });
 
 void fs;

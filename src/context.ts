@@ -149,6 +149,7 @@ export class Pawn {
             root,
             server: this.server(),
             skipTransitive: localStd ? STDLIBS : [],
+            copyIncludesTo: cfg().get<boolean>('packages.copyIncludes', true) ? undefined : false,
             log: (m) => this.output.appendLine(m),
         });
     }

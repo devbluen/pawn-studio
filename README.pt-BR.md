@@ -144,6 +144,10 @@ Na barra lateral Pawn, abra **Pacotes** e clique em `+`:
 - plugins, componentes e bibliotecas vão para o servidor, como descrito acima;
 - os plugins são registrados no `server.cfg` (SA-MP) ou no `config.json` (open.mp);
 - as pastas de include entram no compilador e no IntelliSense, sem configurar nada;
+- os `.inc` também são copiados para o `pawno/include` (SA-MP) ou `qawno/include` (open.mp) do servidor,
+  para o pawno/qawno e outras ferramentas acharem. Um arquivo que já estava lá e não foi instalado pelo
+  Pawn Studio nunca é sobrescrito, e as cópias saem junto com o pacote. Desligue com
+  `pawnStudio.packages.copyIncludes`;
 - os pacotes que o próprio pacote lista no `pawn.json` dele também são instalados. Se o seu projeto
   pede outra versão do mesmo pacote, vale a do seu projeto.
 
@@ -611,6 +615,12 @@ outra cópia do jogo depois, clique em **Trocar pasta**, no canto de cima dos bu
   jogo. Com o cursor em linhas de `SetPlayerAttachedObject` ou `AttachObjectToVehicle` (ou com elas
   selecionadas), rode **Pawn: Attached Objects** ou use o menu do botão direito: elas abrem no editor, e
   **Inserir tudo no editor** escreve o resultado de volta. Atalhos: W mover, E girar, R escalar, F focar.
+- **Skins e modelos personalizados:** os modelos do jogo são lidos do jeito que o jogo carrega: primeiro
+  a pasta `modloader/` (`.dff`/`.txd` soltos, e IDs novos de skin dos `.ide` dela), depois os IMGs extras
+  do `data/gta.dat`, depois os arquivos padrão. Assim, uma skin trocada pelo modloader ou dentro do
+  `gta3.img` aparece no lugar da original, no editor de anexos e no preview de animações. Os modelos do
+  próprio servidor também aparecem, marcados como *personalizado*: `AddCharModel` (skins 20001+) e
+  `AddSimpleModel` (objetos, IDs negativos) do `models/artconfig.txt` ou do código do gamemode.
 - **Quais sons tocam:** a ligação entre o ID do som e os bancos de áudio fica dentro do `gta_sa.exe`.
   A extensão já vem com essa tabela, reconstruída a partir do código do jogo feito por engenharia
   reversa ([gta-reversed](https://github.com/gta-reversed/gta-reversed)). Cada ID vem marcado:

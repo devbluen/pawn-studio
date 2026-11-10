@@ -274,6 +274,39 @@ t('sampctl package fields: "dependencies" list and "include_path"', () => {
     assert.deepStrictEqual(packageDependencies({ dependencies: { 'x/y': '^1.0' } }), [['x/y', '^1.0']]);
 });
 
+t('the .inc files are copied to pawno/include (SA-MP) / qawno/include (open.mp), never over files of the user', async () => {
+    const repo = { source: { 'thing.inc': '// thing', 'thing_sub/extra.inc': '// extra', 'src/internal.inc': '', 'README.md': '' }, assets: {} };
+    const { root, server } = project('samp');
+    fs.mkdirSync(path.join(root, 'pawno/include'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'pawno/include/thing.inc'), '// the user\'s own copy');
+    const pm = new PackageManager(fakeGitHub(repo), { root, server, skipTransitive: [], log: () => {} });
+    let e = await pm.add('someone/thing');
+    assert.strictEqual(fs.readFileSync(path.join(root, 'pawno/include/thing.inc'), 'utf8'), "// the user's own copy", 'not overwritten');
+    assert.ok(fs.existsSync(path.join(root, 'pawno/include/thing_sub/extra.inc')), 'sub-folders kept');
+    assert.ok(!fs.existsSync(path.join(root, 'pawno/include/src/internal.inc')), 'source folders of the package are not copied');
+    assert.ok(e.files.includes('pawno/include/thing_sub/extra.inc'));
+    await pm.remove('someone/thing');
+    assert.ok(!fs.existsSync(path.join(root, 'pawno/include/thing_sub')), 'removed with the package');
+    assert.ok(fs.existsSync(path.join(root, 'pawno/include/thing.inc')), "the user's file stays");
+    // open.mp server: qawno/include
+    const r = await install(repo, 'openmp');
+    assert.ok(r.exists('qawno/include/thing.inc') && r.exists('qawno/include/thing_sub/extra.inc'), r.log);
+    assert.match(r.log, /include file\(s\) in qawno\/include/);
+});
+
+t('layout on a flat archive, one binary for both servers (Pawn.CMD): plugin on SA-MP, component on open.mp', async () => {
+    const manifest = { supports: ['samp', 'openmp'], plugins: { windows: 'pawncmd-*-win32.zip' }, layout: { samp: { plugins: 'pawncmd.*', include: '.' }, openmp: { components: 'pawncmd.*', include: '.' } } };
+    const repo = { source: { 'pawn.json': JSON.stringify(manifest), 'src/Pawn.CMD.inc': '' }, assets: { 'pawncmd-3.5.0-win32.zip': zip({ 'pawncmd.dll': 'B', 'Pawn.CMD.inc': '// inc' }) } };
+    let r = await install(repo, 'openmp', { os: 'windows' });
+    assert.ok(r.exists('components/pawncmd.dll') && !r.exists('plugins/pawncmd.dll'), r.log);
+    assert.ok(r.exists('qawno/include/Pawn.CMD.inc'), r.log);
+    assert.ok(!/legacy_plugins/.test(r.cfg('config.json')), 'not registered as a legacy plugin');
+    r = await install(repo, 'samp', { os: 'windows' });
+    assert.ok(r.exists('plugins/pawncmd.dll') && !r.exists('components/pawncmd.dll'), r.log);
+    assert.match(r.cfg('server.cfg'), /^plugins pawncmd$/m);
+    assert.ok(r.exists('pawno/include/Pawn.CMD.inc'), r.log);
+});
+
 (async () => {
     let n = 0;
     for (const [name, fn] of tests) {

@@ -739,4 +739,30 @@ t('Pawn Studio panel: memory summary from the pawncc output', () => {
   assert.strictEqual(parseSizes('1 Error.'), undefined);
 });
 
+t('custom models: AddCharModel / AddSimpleModel from artconfig.txt or the gamemode', () => {
+  const { parseCustomModels } = require('../out/gta/custom');
+  const txt = 'AddCharModel(305, 20001, "lvpdpc2.dff", "lvpdpc2.txd");\n' +
+    'AddSimpleModel(-1, 19379, -2000, "wallzzz.dff", "wallzzz.txd");\n' +
+    'AddSimpleModelTimed(-1, 19379, -2001, "night/lamp.dff", "night/lamp.txd", 20, 6);\n' +
+    'AddCharModel(BASE, newid, dff, txd); // not literal: skipped';
+  const list = parseCustomModels(txt, 'C:/srv/models', 'models/artconfig.txt');
+  assert.deepStrictEqual(list.map((c) => [c.kind, c.id, c.baseId]), [['skin', 20001, 305], ['object', -2000, 19379], ['object', -2001, 19379]]);
+  assert.ok(list[2].dff.replace(/\\/g, '/').endsWith('models/night/lamp.dff'));
+});
+
+t('game models: modloader/ wins over the IMG archives', () => {
+  const os = require('os');
+  const { LooseFolder } = require('../out/gta/install');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pawn-ml-'));
+  fs.mkdirSync(path.join(tmp, 'modloader/MySkins/police'), { recursive: true });
+  fs.mkdirSync(path.join(tmp, 'modloader/.disabled'), { recursive: true });
+  fs.writeFileSync(path.join(tmp, 'modloader/MySkins/police/lapd1.dff'), 'D');
+  fs.writeFileSync(path.join(tmp, 'modloader/MySkins/police/LAPD1.TXD'), 'T');
+  fs.writeFileSync(path.join(tmp, 'modloader/.disabled/wmyclot.dff'), 'X');
+  const l = new LooseFolder(path.join(tmp, 'modloader'));
+  assert.ok(l.has('lapd1.dff') && l.has('lapd1.txd'), 'by file name, any case, any depth');
+  assert.strictEqual(l.read('LAPD1.dff').toString(), 'D');
+  assert.ok(!l.has('wmyclot.dff'), 'folders starting with "." are disabled mods');
+});
+
 console.log(`\n${n} tests passed`);

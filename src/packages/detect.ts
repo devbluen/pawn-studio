@@ -112,16 +112,21 @@ export interface LayoutResult extends BinaryLayout {
  */
 export function applyLayout(root: string, files: string[], spec: LayoutSpec, server: 'samp' | 'openmp' | undefined, platform: Platform): LayoutResult {
     const rel = (f: string) => path.relative(root, f).split(path.sep).join('/');
-    const list = (v: string | string[] | undefined) => (v === undefined ? [] : Array.isArray(v) ? v : [v]).map((p) => p.replace(/\\/g, '/').replace(/^\.?\/+|\/+$/g, ''));
+    // "." (or "") = the root of the archive
+    const list = (v: string | string[] | undefined) =>
+        (v === undefined ? [] : Array.isArray(v) ? v : [v]).map((p) => p.replace(/\\/g, '/').replace(/^\.?\/+|\/+$/g, '')).map((p) => (p === '.' ? '' : p));
     const roles: LayoutRoles[] = [spec.all ?? {}, ...(server ? [spec[server] ?? {}] : [spec.samp ?? {}, spec.openmp ?? {}])];
     const all = (k: keyof LayoutRoles) => roles.flatMap((r) => list(r[k]));
     // the archive may wrap everything in one folder
     let base = '';
     const tops = [...new Set(files.map((f) => rel(f).split('/')[0]))];
     const declared = [...all('plugins'), ...all('components'), ...all('libraries'), ...all('include')];
-    const found = (p: string, b: string) => files.some((f) => { const r = rel(f); const q = b ? b + '/' + p : p; return r === q || r.startsWith(q + '/') || (/[*?]/.test(p) && globToRegex(q).test(r)); });
+    const found = (p: string, b: string) =>
+        p === ''
+            ? !b || files.some((f) => rel(f).startsWith(b + '/'))
+            : files.some((f) => { const r = rel(f); const q = b ? b + '/' + p : p; return r === q || r.startsWith(q + '/') || (/[*?]/.test(p) && globToRegex(q).test(r)); });
     if (tops.length === 1 && declared.length && !declared.some((p) => found(p, '')) && declared.some((p) => found(p, tops[0]))) base = tops[0];
-    const full = (p: string) => (base ? base + '/' + p : p);
+    const full = (p: string) => (base ? (p ? base + '/' + p : base) : p);
     // plugins are loaded by name (x.dll / x.so); components and libraries may be versioned (libboost.so.1.74.0)
     const ext = platform === 'windows' ? /\.dll$/i : /\.so$/i;
     const libExt = platform === 'windows' ? /\.dll$/i : /\.so(\.\d+)*$/i;
@@ -145,8 +150,9 @@ export function applyLayout(root: string, files: string[], spec: LayoutSpec, ser
     const includes: string[] = [];
     for (const p of all('include')) {
         const q = full(p);
-        if (files.some((f) => rel(f).startsWith(q + '/'))) includes.push(q);
-        else missing.push(p);
+        const has = q === '' ? files.some((f) => /\.inc$/i.test(f) && !rel(f).includes('/')) : files.some((f) => rel(f).startsWith(q + '/'));
+        if (has) includes.push(q);
+        else missing.push(p || '.');
     }
     return { plugins, components, libraries, skipped: [], includes, missing };
 }

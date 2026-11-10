@@ -7,7 +7,9 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { cfg } from '../context';
+import { CustomModel, findCustomModels, readCustomModel } from '../gta/custom';
 import { findGtaDir, GtaInstall, isGtaDir, LoadedModel } from '../gta/install';
+import { findServer } from '../packages/manifest';
 import { objectRotation } from '../gta/ipl';
 import { encodeWav } from '../gta/sfx';
 import { BANK_NAMES } from '../gta/soundMap';
@@ -631,6 +633,24 @@ export class AttachEditor extends Panel {
         }
     }
 
+    private custom: CustomModel[] = [];
+
+    /** The server's custom models: models/artconfig.txt + AddCharModel/AddSimpleModel in the project's code. */
+    private async customModels(): Promise<CustomModel[]> {
+        const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!folder) return [];
+        const explicit = cfg().get<string>('server.path');
+        const server = findServer(folder, explicit || undefined);
+        const dir = server?.dir ?? folder;
+        let files: string[] = [];
+        try {
+            files = (await vscode.workspace.findFiles('**/*.{pwn,inc}', '**/{node_modules,dependencies,.pawn-studio,pawno,qawno}/**', 400)).map((u) => u.fsPath);
+        } catch {
+            files = [];
+        }
+        return findCustomModels(dir, files);
+    }
+
     private friendlyNames(): Record<string, string> {
         if (!this.names) {
             try {
@@ -646,10 +666,33 @@ export class AttachEditor extends Panel {
         switch (m.type) {
             case 'catalog': {
                 const gta = gtaInstall();
-                this.post({ type: 'catalog', reqId: m.reqId, rows: gta.catalog(this.friendlyNames()), gtaDir: gta.dir });
+                this.custom = await this.customModels();
+                // custom skins / objects of the server, shown first with the file name
+                const rows = [
+                    ...this.custom.map((c) => [c.id, path.basename(c.dff, '.dff').toLowerCase(), t('custom · {0}', c.source), c.kind === 'skin' ? 's' : 'o']),
+                    ...gta.catalog(this.friendlyNames()),
+                ];
+                this.post({ type: 'catalog', reqId: m.reqId, rows, gtaDir: gta.dir, custom: this.custom.length });
                 return;
             }
             case 'rawModel': {
+                const c = this.custom.find((x) => x.id === m.id);
+                if (c) {
+                    const raw = readCustomModel(c);
+                    this.post({
+                        type: 'rawModel',
+                        reqId: m.reqId,
+                        model: raw && {
+                            kind: c.kind,
+                            model: path.basename(c.dff, '.dff'),
+                            name: t('custom · {0}', c.source),
+                            origin: path.relative(path.dirname(path.dirname(c.dff)), c.dff).split(path.sep).join('/'),
+                            dff: raw.dff.toString('base64'),
+                            textures: raw.textures.map((x) => [x.name, x.width, x.height, x.rgba.toString('base64')]),
+                        },
+                    });
+                    return;
+                }
                 const r = gtaInstall().rawModel(m.id);
                 const name = this.friendlyNames()[m.id];
                 this.post({
