@@ -14,6 +14,8 @@ A complete Pawn environment for VS Code:
 The extension is available in **English** and **Português (Brasil)**. It follows the VS Code display
 language, or you can force one with `pawnStudio.language`.
 
+![Error lens while typing, autocomplete from the include tree and the Pawn sidebar with the compile result and the packages](images/editor.png)
+
 | Shortcut | What it does |
 |---|---|
 | **F5** / **Ctrl+Shift+B** | compiles the gamemode/filterscript that uses the open file |
@@ -87,6 +89,8 @@ it right away.
 ## Package manager (GitHub)
 
 It works like npm, with its own `pawn.json` format, and installs **any** GitHub repository.
+
+![Packages view: the pawn.json dependencies installed, with their plugin and include folders](images/packages.png)
 
 A package doesn't need to have been written for Pawn Studio. When a repository has no `pawn.json`,
 the extension works out on its own:
@@ -282,7 +286,7 @@ the automatic detection:
 
 ## Tools: objects, sprites, animations, sounds and dialogs
 
-The **Tools** section of the Pawn sidebar opens five tools. Every one inserts code at the cursor of
+The **Tools** section of the Pawn sidebar opens seven tools. Every one inserts code at the cursor of
 the file you were editing.
 
 The finders read models, textures, animations and sounds straight from **your own GTA San Andreas
@@ -299,6 +303,32 @@ its own (SA-MP's registry key, then common install folders). If it isn't found, 
 | **Attached Objects** | 3D editor to position objects on the player (any skin, 18 bones, offset, rotation, scale and material colors) or on a vehicle (any vehicle and color). Move, rotate and scale with the mouse; object browser with thumbnails (hats, helmets, glasses, masks…) | `SetPlayerAttachedObject`, or `CreateObject` + `AttachObjectToVehicle` (`CreateDynamicObject` + `AttachDynamicObjectToVehicle` with the streamer) |
 | **GangZone Creator** | draws gang zones on the San Andreas map: rectangles, circles and polygons (point by point). Move and resize them with the mouse, set the color and opacity, or type the coordinates | `GangZoneCreate` + `GangZoneShowForPlayer`/`ForAll`, and with the streamer `CreateDynamicRectangle` / `CreateDynamicCircle` / `CreateDynamicPolygon` with `OnPlayerEnterDynamicArea` |
 | **Dialog Creator** | builds a dialog visually, in every style, with a preview that looks like the game, `{RRGGBB}` colors and the response handler | `ShowPlayerDialog` + `OnDialogResponse`, or easyDialog `Dialog_Show` + `Dialog:name` |
+
+**Results on the map:** every place where the objects you searched for are, with the real position and rotation.
+
+![Object finder: searching pump shows every gas pump on the map and the positions of the selected model](images/objects-map.png)
+
+**Object preview** with the game's own textures:
+
+![Object finder: 3D preview of a gas pump with its properties and code](images/objects-3d.png)
+
+**Attached Objects:** position objects on the player or on a vehicle in 3D.
+
+![Attached Objects editor: a helmet on skin 7 with the move gizmo and the slot settings](images/attach.png)
+
+**GangZone Creator:** rectangles, circles and polygons, with streamer areas.
+
+![GangZone Creator: three zones on the Los Santos map and the generated code](images/gangzone.png)
+
+**Dialog Creator:** a preview that looks like the game.
+
+![Dialog Creator: a TABLIST_HEADERS store dialog with colors and the generated code](images/dialog.png)
+
+**Animations** in 3D on any skin, and **sounds** that play in the editor:
+
+![Animation preview: DANCING DAN_Loop_A playing on skin 7](images/animations.png)
+
+![Sound finder: SOUND_CHECKPOINT_GREEN with play controls and the PlayerPlaySound code](images/sounds.png)
 
 - **Dialog Creator details:**
   - With the cursor on an existing `ShowPlayerDialog` or `Dialog_Show`, the creator opens filled in
@@ -342,6 +372,8 @@ its own (SA-MP's registry key, then common install folders). If it isn't found, 
 ---
 
 ## Debugging the server
+
+![The debugger stopped on a crashdetect run time error, with the call stack, the arguments and the line marked in the editor](images/debugger.png)
 
 **F6**, the ▶ button in the *Server* view, or Run and Debug → *SA-MP / open.mp Server*:
 

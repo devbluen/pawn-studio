@@ -2,9 +2,22 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "publisher": "devbluen",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devbluen/pawn-studio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/devbluen/pawn-studio/issues"
+  },
+  "homepage": "https://github.com/devbluen/pawn-studio#readme",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#111827",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.82.0"
   },
@@ -813,7 +826,7 @@
     "watch": "tsc -watch -p ./",
     "test": "tsc -p ./ && node test/run.js && node test/grammar.js && node test/i18n.js && node test/gta.js",
     "test:live": "tsc -p ./ && node test/live.js",
-    "package": "vsce package --allow-missing-repository --no-rewrite-relative-links",
+    "package": "vsce package",
     "test:vscode": "tsc -p ./ && node test/vscode/runTest.js"
   },
   "devDependencies": {

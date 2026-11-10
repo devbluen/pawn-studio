@@ -7,3 +7,4 @@ tsconfig.json
 node_modules/**
 *.vsix
 .gitignore
+images/**

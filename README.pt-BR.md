@@ -14,6 +14,8 @@ Um ambiente completo de Pawn no VS Code:
 A extensão está disponível em **Português (Brasil)** e **English**. Ela segue o idioma do VS Code, ou
 você pode forçar um idioma com `pawnStudio.language`.
 
+![Error lens enquanto digita, autocompletar com a árvore de includes e a barra lateral Pawn com o resultado da compilação e os pacotes](images/editor.png)
+
 | Atalho | O que faz |
 |---|---|
 | **F5** / **Ctrl+Shift+B** | compila o gamemode/filterscript do arquivo aberto |
@@ -90,6 +92,8 @@ o aviso na hora.
 
 Funciona como o npm, com um formato próprio de `pawn.json`, e instala **qualquer** repositório do
 GitHub.
+
+![Aba de pacotes: as dependências do pawn.json instaladas, com o plugin e as pastas de include](images/packages.png)
 
 O pacote não precisa ter sido feito para o Pawn Studio. Quando o repositório não tem `pawn.json`, a
 extensão descobre sozinha:
@@ -283,7 +287,7 @@ detecção automática:
 
 ## Ferramentas: objetos, sprites, animações, sons e dialogs
 
-A seção **Ferramentas** da barra lateral Pawn abre cinco ferramentas. Todas inserem o código no
+A seção **Ferramentas** da barra lateral Pawn abre sete ferramentas. Todas inserem o código no
 cursor do arquivo em que você estava.
 
 Os buscadores leem modelos, texturas, animações e sons direto da **sua própria instalação do GTA San
@@ -300,6 +304,32 @@ Andreas**: nenhum arquivo do jogo vem junto com a extensão. A pasta do jogo é 
 | **Attached Objects** | editor 3D para posicionar objetos no jogador (qualquer skin, 18 ossos, posição, rotação, escala e cores do material) ou num veículo (qualquer veículo e cor). Move, gira e escala com o mouse; navegador de objetos com miniaturas (chapéus, capacetes, óculos, máscaras…) | `SetPlayerAttachedObject`, ou `CreateObject` + `AttachObjectToVehicle` (`CreateDynamicObject` + `AttachDynamicObjectToVehicle` com o streamer) |
 | **GangZone Creator** | desenha gang zones no mapa de San Andreas: retângulos, círculos e polígonos (ponto a ponto). Move e redimensiona com o mouse, escolhe cor e opacidade, ou digita as coordenadas | `GangZoneCreate` + `GangZoneShowForPlayer`/`ForAll` e, com o streamer, `CreateDynamicRectangle` / `CreateDynamicCircle` / `CreateDynamicPolygon` com `OnPlayerEnterDynamicArea` |
 | **Dialog Creator** | monta um dialog visualmente, em todos os estilos, com preview igual ao do jogo, cores `{RRGGBB}` e o tratamento da resposta | `ShowPlayerDialog` + `OnDialogResponse`, ou easyDialog `Dialog_Show` + `Dialog:nome` |
+
+**Resultados no mapa:** todos os lugares onde ficam os objetos que você buscou, com a posição e a rotação reais.
+
+![Buscador de objetos: buscar pump mostra todas as bombas de gasolina no mapa e as posições do modelo escolhido](images/objects-map.png)
+
+**Preview dos objetos** com as texturas do próprio jogo:
+
+![Buscador de objetos: preview 3D de uma bomba de gasolina com as propriedades e o código](images/objects-3d.png)
+
+**Attached Objects:** posicione objetos no jogador ou num veículo em 3D.
+
+![Editor de Attached Objects: um capacete no skin 7 com o gizmo de mover e as opções do slot](images/attach.png)
+
+**GangZone Creator:** retângulos, círculos e polígonos, com áreas do streamer.
+
+![GangZone Creator: três zonas no mapa de Los Santos e o código gerado](images/gangzone.png)
+
+**Dialog Creator:** preview igual ao do jogo.
+
+![Dialog Creator: um dialog de loja TABLIST_HEADERS com cores e o código gerado](images/dialog.png)
+
+**Animações** em 3D em qualquer skin, e **sons** que tocam no editor:
+
+![Preview de animações: DANCING DAN_Loop_A tocando no skin 7](images/animations.png)
+
+![Buscador de sons: SOUND_CHECKPOINT_GREEN com os controles de tocar e o código do PlayerPlaySound](images/sounds.png)
 
 - **Detalhes do Dialog Creator:**
   - Com o cursor em um `ShowPlayerDialog` ou `Dialog_Show` existente, o criador abre preenchido com
@@ -346,6 +376,8 @@ Andreas**: nenhum arquivo do jogo vem junto com a extensão. A pasta do jogo é 
 ---
 
 ## Depurar o servidor
+
+![O depurador parado num erro de execução do crashdetect, com a pilha de chamadas, os argumentos e a linha marcada no editor](images/debugger.png)
 
 **F6**, o botão ▶ da aba *Servidor* ou Executar e Depurar → *Servidor SA-MP / open.mp*:
 
