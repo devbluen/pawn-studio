@@ -269,7 +269,7 @@ export class Builder {
         const compiler = pawn.compilerPath(target.entry);
         if (!compiler) {
             if (background) return undefined;
-            const configured = cfg().get<string>('compilerPath');
+            const configured = pawn.projectCompiler().path ?? cfg().get<string>('compilerPath');
             const msg = configured
                 ? t('Pawn: pawncc not found at "{0}".', configured)
                 : t('Pawn: pawncc not found (searched pawno/, qawno/ and PATH).');
@@ -288,7 +288,7 @@ export class Builder {
         }
         const includeDirs = opts.shadow?.includeDirs ?? pawn.includeDirs(target.entry);
         const compileEntry = opts.shadow?.entry ?? target.entry;
-        let args = cfg().get<string[]>('args') ?? [];
+        let args = pawn.compilerArgs();
         // The check does not need debug information.
         if (background) args = args.filter((a) => !/^-d\d$/.test(a));
 

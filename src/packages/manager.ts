@@ -22,9 +22,9 @@ import {
 } from './deps';
 import { classifyBinaries, detectIncludeDirs, includeDirsInAsset, pickAsset } from './detect';
 import { GitHub, GitHubError, Release, TagInfo } from './github';
+import { includeFor, InstallTarget, resolveTarget, supportsOf, targetLabel } from './target';
 import { t } from '../i18n';
 import {
-    currentPlatform,
     LockEntry,
     LockFile,
     ManifestError,
@@ -401,6 +401,7 @@ export class PackageManager {
             const target = ctx.pinned ?? (await this.resolve(n, requirement, stillOk ? existing : undefined, ctx.force));
             entry = await this.fetchAndInstall(n, requirement, target, existing, lock);
             lock.packages[key] = entry;
+            this.log(this.summary(n, entry));
         }
         entry.direct = direct;
         entry.dev = dev || undefined;
@@ -441,7 +442,7 @@ export class PackageManager {
             refType: target.refType,
             commit: target.commit,
             dir: rel(dir),
-            includePaths: detectIncludeDirs(dir, pkg?.include).map((p) => rel(path.join(dir, p))),
+            includePaths: detectIncludeDirs(dir, includeFor(pkg?.include, this.target().server)).map((p) => rel(path.join(dir, p))),
             plugins: [],
             files: [],
             dependencies: [],
@@ -458,40 +459,61 @@ export class PackageManager {
         return taken ? `${n.owner}-${n.repo}` : n.repo;
     }
 
+    /** Server, os, arch and variant packages are installed for (project pawn.json "target" + detection). */
+    target(): InstallTarget {
+        let spec;
+        try {
+            spec = this.manifest()?.target;
+        } catch {
+            spec = undefined;
+        }
+        return resolveTarget(spec, this.opts.server);
+    }
+
     /**
-     * Downloads the release asset for this platform (if any), then places plugins in plugins/
-     * (registered in server.cfg / config.json), components in components/ (open.mp) and the
-     * runtime libraries next to the server executable. .inc folders inside the asset are added too.
+     * Downloads the release asset(s) for the target, then places plugins in plugins/ (registered in
+     * server.cfg / config.json), components in components/ (open.mp) and the runtime libraries next to
+     * the server executable. .inc folders inside the assets are added too.
      */
     private async installBinaries(n: PackageName, target: Resolved, pkg: PawnJson | undefined, entry: LockEntry, pkgDir: string): Promise<void> {
+        const tgt = this.target();
+        const supports = supportsOf(pkg?.supports);
+        const server = this.opts.server;
+        if (tgt.server && !supports.includes(tgt.server)) {
+            if (tgt.server === 'samp') {
+                // a component-only package cannot run on SA-MP
+                this.log(`  ⚠ ${t('{0} is made for open.mp only: its binaries are not installed on a SA-MP server', displayName(n))}`);
+                return;
+            }
+            this.log(`  · ${t('{0} is made for SA-MP: open.mp loads it as a legacy plugin', displayName(n))}`);
+        }
+        const declared = !!pkg?.plugins || !!pkg?.components;
         let release: Release | undefined;
         if (target.refType === 'tag') release = await this.gh.releaseByTag(n.owner, n.repo, target.ref);
-        else if (pkg?.plugins) release = await this.gh.latestRelease(n.owner, n.repo);
+        else if (declared) release = await this.gh.latestRelease(n.owner, n.repo);
         if (!release?.assets.length) {
-            if (pkg?.plugins) this.log(`  ⚠ ${t('{0} declares plugins but its release has no files', displayName(n))}`);
+            if (declared) this.log(`  ⚠ ${t('{0} declares plugins but its release has no files', displayName(n))}`);
             return;
-        }
-        const platform = currentPlatform();
-        const asset = pickAsset(release.assets, platform, pkg?.plugins);
-        if (!asset) {
-            if (pkg?.plugins) this.log(`  ⚠ ${t('No file in release {0} matches the {1} pattern', release.tag_name, platform)}`);
-            return;
-        }
-        this.log(`  ↓ ${asset.name} (${(asset.size / 1024).toFixed(0)} KB, release ${release.tag_name})`);
-        const buf = await this.gh.download(asset.browser_download_url);
-        const resDir = path.join(pkgDir, '.resources');
-        fs.rmSync(resDir, { recursive: true, force: true });
-        let written: string[];
-        if (/\.(zip|tar\.gz|tgz)$/i.test(asset.name)) {
-            written = extractTo(readArchive(buf), resDir);
-        } else {
-            fs.mkdirSync(resDir, { recursive: true });
-            const f = path.join(resDir, asset.name);
-            fs.writeFileSync(f, buf);
-            written = [f];
         }
 
-        const server = this.opts.server;
+        // which files: the open.mp component asset when the author ships one, else the plugins asset
+        const wantComponents = !!pkg?.components && tgt.server !== 'samp';
+        const wantPlugins = pkg?.plugins !== false && (!wantComponents || !tgt.server);
+        const picks: Array<{ asset: (typeof release.assets)[number]; role: 'plugin' | 'component' }> = [];
+        if (wantComponents) {
+            const c = pickAsset(release.assets, tgt, pkg!.components);
+            if (c) picks.push({ asset: c, role: 'component' });
+            else this.log(`  ⚠ ${t('No open.mp component file in release {0} for {1}', release.tag_name, targetLabel(tgt))}`);
+        }
+        if (wantPlugins) {
+            const p = pickAsset(release.assets, tgt, pkg?.plugins);
+            if (p && !picks.some((x) => x.asset === p)) picks.push({ asset: p, role: 'plugin' });
+            else if (!p && pkg?.plugins) this.log(`  ⚠ ${t('No file in release {0} for {1} (pawn.json keys: {2})', release.tag_name, targetLabel(tgt), Object.keys(pkg.plugins).join(', '))}`);
+        }
+        if (!picks.length) return;
+
+        const resDir = path.join(pkgDir, '.resources');
+        fs.rmSync(resDir, { recursive: true, force: true });
         const serverDir = server?.dir ?? this.root;
         const rel = (p: string) => path.relative(this.root, p).split(path.sep).join('/');
         const copy = (src: string, destDir: string) => {
@@ -502,39 +524,91 @@ export class PackageManager {
             } catch {
                 this.log(`  ⚠ ${t('Could not write {0} (is the server running?)', rel(dest))}`);
             }
-            entry.files.push(rel(dest));
+            if (!entry.files.includes(rel(dest))) entry.files.push(rel(dest));
             return dest;
         };
-
-        const layout = classifyBinaries(resDir, written, platform);
-        if (!layout.plugins.length && !layout.components.length) {
+        const assetIncludes: string[] = [];
+        let anyBinary = false;
+        for (const { asset, role } of picks) {
+            this.log(`  ↓ ${asset.name} (${(asset.size / 1024).toFixed(0)} KB, release ${release.tag_name})`);
+            const buf = await this.gh.download(asset.browser_download_url);
+            const into = picks.length > 1 ? path.join(resDir, role) : resDir;
+            let written: string[];
+            if (/\.(zip|tar\.gz|tgz)$/i.test(asset.name)) {
+                written = extractTo(readArchive(buf), into);
+            } else {
+                fs.mkdirSync(into, { recursive: true });
+                const f = path.join(into, asset.name);
+                fs.writeFileSync(f, buf);
+                written = [f];
+            }
+            const flatAs = role === 'component' || (supports.length === 1 && supports[0] === 'openmp') ? 'component' : 'plugin';
+            const layout = classifyBinaries(into, written, tgt.os, tgt.server, { arch: tgt.arch, flatAs });
+            if (!layout.plugins.length && !layout.components.length) {
+                if (declared) this.log(`  ⚠ ${t('No .dll/.so found inside {0}', asset.name)}`);
+                continue;
+            }
+            anyBinary = true;
+            for (const p of layout.plugins) {
+                const dest = copy(p, path.join(serverDir, 'plugins'));
+                if (server) {
+                    const name = pluginConfigName(dest, server.kind, tgt.os);
+                    if (fs.existsSync(server.configFile) || server.kind === 'samp') setServerPlugin(server, name, true);
+                    if (!entry.plugins.includes(name)) entry.plugins.push(name);
+                }
+                this.log(`  + plugin ${path.basename(dest)}`);
+            }
+            for (const c of layout.components) {
+                copy(c, path.join(serverDir, 'components'));
+                this.log(`  + component ${path.basename(c)}`);
+            }
+            for (const l of layout.libraries) {
+                copy(l, serverDir);
+                this.log(`  + ${path.basename(l)}`);
+            }
+            for (const s of layout.skipped) {
+                this.log(
+                    tgt.server === 'samp'
+                        ? `  · ${t('{0} skipped: open.mp component, this is a SA-MP server', path.basename(s))}`
+                        : `  · ${t('{0} skipped: the open.mp component version is used instead', path.basename(s))}`,
+                );
+            }
+            for (const inc of includeDirsInAsset(into)) assetIncludes.push(rel(path.join(into, inc)));
+        }
+        if (!anyBinary && !assetIncludes.length) {
             // a source/include-only asset: the repository source is already installed
             fs.rmSync(resDir, { recursive: true, force: true });
-            if (pkg?.plugins) this.log(`  ⚠ ${t('No .dll/.so found inside {0}', asset.name)}`);
             return;
         }
-        for (const p of layout.plugins) {
-            const dest = copy(p, path.join(serverDir, 'plugins'));
-            if (server) {
-                const name = pluginConfigName(dest, server.kind);
-                if (fs.existsSync(server.configFile) || server.kind === 'samp') setServerPlugin(server, name, true);
-                entry.plugins.push(name);
-                this.log(`  + plugin ${name}`);
+        entry.asset = picks.map((p) => p.asset.name).join(', ');
+        entry.target = targetLabel(tgt);
+        // the .inc files of the release match its binaries: they come first, and the repository source
+        // (SDKs, C++ code…) is not kept when the release brings everything
+        if (assetIncludes.length) {
+            entry.includePaths = [...new Set(assetIncludes)];
+            for (const keep of fs.readdirSync(pkgDir)) {
+                if (keep === '.resources' || /^(pawn\.json|readme.*|license.*|licence.*|changelog.*)$/i.test(keep)) continue;
+                fs.rmSync(path.join(pkgDir, keep), { recursive: true, force: true });
             }
         }
-        for (const c of layout.components) {
-            copy(c, path.join(serverDir, 'components'));
-            this.log(`  + component ${path.basename(c)}`);
+    }
+
+    /** One line saying what a package put in the project. */
+    summary(n: PackageName, e: LockEntry): string {
+        const incs = new Set<string>();
+        for (const p of e.includePaths) {
+            try {
+                for (const f of fs.readdirSync(path.resolve(this.root, p))) if (/\.inc$/i.test(f)) incs.add(f);
+            } catch {
+                /* folder gone */
+            }
         }
-        for (const l of layout.libraries) {
-            copy(l, serverDir);
-            this.log(`  + ${path.basename(l)}`);
-        }
-        entry.asset = asset.name;
-        for (const inc of includeDirsInAsset(resDir)) {
-            const p = rel(path.join(resDir, inc));
-            if (!entry.includePaths.includes(p)) entry.includePaths.push(p);
-        }
+        const parts: string[] = [];
+        const comps = e.files.filter((f) => /(^|\/)components\//i.test(f)).map((f) => path.basename(f));
+        if (e.plugins.length) parts.push(t('plugin {0}', e.plugins.join(', ')) + (this.opts.server?.kind === 'samp' ? ` (${t('added to server.cfg')})` : this.opts.server ? ` (${t('added to config.json')})` : ''));
+        if (comps.length) parts.push(t('component {0}', comps.join(', ')));
+        if (incs.size) parts.push(t('include {0}', [...incs].slice(0, 6).join(', ') + (incs.size > 6 ? '…' : '')));
+        return `✔ ${displayName(n)} ${e.ref}${e.target ? ` [${e.target}]` : ''}: ${parts.length ? parts.join(' · ') : t('installed (no plugin or include found)')}`;
     }
 
     private uninstallFiles(e: LockEntry, lock: LockFile): void {

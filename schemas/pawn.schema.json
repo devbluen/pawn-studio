@@ -5,21 +5,81 @@
   "definitions": {
     "deps": {
       "type": "object",
-      "propertyNames": { "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+      },
       "additionalProperties": {
         "type": "string",
         "description": "Version requirement: \"^1.2.0\" (compatible updates), \"~1.2.0\" (patches), \"1.2.0\" (exact), \"latest\", \"tag:<name>\", \"branch:<name>\" or \"commit:<sha>\".",
-        "examples": ["^1.0.0", "~1.0.0", "1.0.0", "latest", "branch:master", "commit:a1b2c3d", "tag:r1-final"]
+        "examples": [
+          "^1.0.0",
+          "~1.0.0",
+          "1.0.0",
+          "latest",
+          "branch:master",
+          "commit:a1b2c3d",
+          "tag:r1-final"
+        ]
       },
-      "defaultSnippets": [{ "label": "package", "body": { "${1:user}/${2:repo}": "${3:latest}" } }]
+      "defaultSnippets": [
+        {
+          "label": "package",
+          "body": {
+            "${1:user}/${2:repo}": "${3:latest}"
+          }
+        }
+      ]
+    },
+    "assetMap": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^(windows|linux)(-(x86|x64))?(-[a-z0-9]+)?$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "description": "Release file glob per target. Keys: windows, linux, windows-x64, linux-x86-dynamic, linux-static… A plain \"windows\"/\"linux\" key is the 32-bit build.",
+      "defaultSnippets": [
+        {
+          "label": "windows + linux",
+          "body": {
+            "windows": "${1:name}-*-win32.zip",
+            "linux": "${1:name}-*-linux.tar.gz"
+          }
+        }
+      ]
     }
   },
   "properties": {
-    "name": { "type": "string", "description": "Project or package name." },
-    "version": { "type": "string", "description": "Project version (informative). Packages are versioned by their Git tags." },
-    "description": { "type": "string" },
-    "entry": { "type": "string", "description": "Main .pwn file (e.g. gamemodes/main.pwn). Used when compiling a file no entry file includes." },
-    "output": { "type": "string", "description": "Generated .amx file (default: next to the entry)." },
+    "name": {
+      "type": "string",
+      "description": "Project or package name."
+    },
+    "version": {
+      "type": "string",
+      "description": "Project version (informative). Packages are versioned by their Git tags."
+    },
+    "description": {
+      "type": "string"
+    },
+    "entry": {
+      "type": "string",
+      "description": "Main .pwn file (e.g. gamemodes/main.pwn). Used when compiling a file no entry file includes."
+    },
+    "output": {
+      "type": "string",
+      "description": "Generated .amx file (default: next to the entry)."
+    },
     "dependencies": {
       "$ref": "#/definitions/deps",
       "description": "GitHub packages: { \"user/repo\": \"requirement\" }. Installed into dependencies/ and locked in pawn-lock.json."
@@ -29,22 +89,179 @@
       "description": "Packages used only during development (tests, debugging tools)."
     },
     "include": {
-      "description": "For package authors: folder(s) with the .inc files this package exports. Default: detected (include/ folders, otherwise the repository root).",
-      "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
-    },
-    "plugins": {
-      "description": "For package authors: release asset (glob) with the .dll/.so per platform, or false when the package has no binaries. Default: detected from the release file names.",
+      "description": "For package authors: folder(s) with the .inc files this package exports. Use { \"samp\": ..., \"openmp\": ... } when each server has its own include. Default: detected.",
       "oneOf": [
-        { "const": false },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "windows": { "type": "string", "description": "Glob of the Windows asset, e.g. \"myplugin-*-win32.zip\"." },
-            "linux": { "type": "string", "description": "Glob of the Linux asset, e.g. \"myplugin-*-linux.tar.gz\"." }
+            "samp": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Include folder(s) for SA-MP servers."
+            },
+            "openmp": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Include folder(s) for open.mp servers."
+            },
+            "all": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "description": "Include folder(s) for both."
+            }
           }
         }
       ]
+    },
+    "plugins": {
+      "description": "For package authors: release file(s) with the binaries per target (SA-MP plugins, or archives with plugins/ and components/ inside), or false when the package has no binaries. Default: detected from the release file names.",
+      "oneOf": [
+        {
+          "const": false
+        },
+        {
+          "$ref": "#/definitions/assetMap"
+        }
+      ]
+    },
+    "supports": {
+      "description": "For package authors: servers this package is made for. Default: both. An open.mp-only package is not installed on SA-MP servers; a SA-MP plugin is loaded by open.mp as a legacy plugin.",
+      "oneOf": [
+        {
+          "enum": [
+            "samp",
+            "openmp",
+            "both"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "enum": [
+              "samp",
+              "openmp"
+            ]
+          },
+          "uniqueItems": true
+        }
+      ],
+      "examples": [
+        [
+          "samp",
+          "openmp"
+        ],
+        "openmp",
+        "samp"
+      ]
+    },
+    "components": {
+      "$ref": "#/definitions/assetMap",
+      "description": "For package authors: release file(s) with the open.mp component, only when it is a different file from \"plugins\". open.mp servers download this one instead."
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "For projects: which builds packages install. Default: the server found in the project, this machine's system, 32-bit, default build.",
+      "properties": {
+        "server": {
+          "enum": [
+            "samp",
+            "openmp"
+          ],
+          "description": "Server the packages are for (default: detected from samp-server / omp-server)."
+        },
+        "os": {
+          "enum": [
+            "windows",
+            "linux"
+          ],
+          "description": "System of the server (e.g. linux when you develop on Windows and deploy to Linux)."
+        },
+        "arch": {
+          "enum": [
+            "x86",
+            "x64"
+          ],
+          "description": "Architecture (default x86: SA-MP and open.mp load 32-bit plugins)."
+        },
+        "variant": {
+          "type": "string",
+          "description": "Build variant when the package offers several, e.g. \"dynamic\" (dynssl) or \"static\".",
+          "examples": [
+            "static",
+            "dynamic"
+          ]
+        }
+      }
+    },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "For projects: compiler settings of this project. They win over the pawnStudio.* settings. Paths are relative to pawn.json.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "pawncc to use (file or folder), e.g. \"pawno/pawncc.exe\"."
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "pawncc options, e.g. [\"-d3\", \"-;+\", \"-(+\"].",
+          "examples": [
+            [
+              "-d3",
+              "-;+",
+              "-(+"
+            ]
+          ]
+        },
+        "includes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Extra include folders (before the pawnStudio.includePaths setting)."
+        }
+      }
     }
   }
 }

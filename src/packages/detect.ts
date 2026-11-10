@@ -8,6 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Platform, PluginAssets } from './manifest';
+import { AssetMap, globsFor, InstallTarget } from './target';
 
 const SKIP_DIRS = /^(\.git|\.github|\.resources|node_modules|tests?|examples?|samples?|docs?|\.vscode|build|cmake|lib|libs|external|vendor|dependencies)$/i;
 const INCLUDE_DIR = /^(include|includes|inc)$/i;
@@ -78,6 +79,7 @@ const WIN = /(win|windows|w32|msvc|\.dll$)/i;
 const LINUX = /(linux|ubuntu|debian|centos|\.so$)/i;
 const BAD = /(debug|pdb|symbols?|source|src\b|sources|dbg)/i;
 const X64 = /(x64|x86_64|amd64|win64|64bit|-64\b)/i;
+const DYNAMIC = /(dyn(amic|ssl)?|shared)/i;
 
 function globToRegex(glob: string): RegExp {
     const esc = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
@@ -89,15 +91,25 @@ export interface AssetLike {
 }
 
 /**
- * Picks the release asset with the binaries for `platform`.
- * `plugins` from the package's pawn.json wins (glob, or false = none). Otherwise: scores names by
- * platform tokens; neutral archives (no platform in the name) are accepted as a fallback — they
- * often ship both .dll and .so (e.g. streamer).
+ * Picks the release asset with the binaries for a target (or just a platform = 32-bit default build).
+ * `map` from the package's pawn.json wins ("plugins"/"components": glob per target key, or false = none).
+ * Otherwise names are scored by system, architecture and variant tokens; neutral archives (no system
+ * in the name) are accepted as a fallback — they often ship both .dll and .so (e.g. streamer).
  */
-export function pickAsset<T extends AssetLike>(assets: T[], platform: Platform, plugins?: PluginAssets): T | undefined {
-    if (plugins === false) return undefined;
-    const glob = plugins?.[platform];
-    if (glob) return assets.find((a) => globToRegex(glob).test(a.name));
+export function pickAsset<T extends AssetLike>(assets: T[], target: InstallTarget | Platform, map?: AssetMap | false): T | undefined {
+    if (map === false) return undefined;
+    const t: InstallTarget = typeof target === 'string' ? { os: target, arch: 'x86' } : target;
+    const explicit = globsFor(map, t);
+    if (explicit) {
+        for (const g of explicit.globs) {
+            const a = assets.find((x) => globToRegex(g).test(x.name));
+            if (a) return a;
+        }
+        return undefined;
+    }
+    // a map that has no key for this target: nothing was published for it
+    if (map && Object.keys(map).length) return undefined;
+    const platform = t.os;
     const mine = platform === 'windows' ? WIN : LINUX;
     const other = platform === 'windows' ? LINUX : WIN;
     let best: { a: T; score: number } | undefined;
@@ -111,8 +123,13 @@ export function pickAsset<T extends AssetLike>(assets: T[], platform: Platform, 
         const hasOther = other.test(n.replace(/\.(zip|tar\.gz|tgz)$/i, ''));
         if (hasOther && !hasMine) continue;
         let score = hasMine ? 10 : 1;
-        if (X64.test(n)) score -= 5; // SA-MP and open.mp legacy plugins are 32-bit
-        if (/static/i.test(n)) score -= 1;
+        const is64 = X64.test(n.replace(/win64/i, 'x64'));
+        if (t.arch === 'x64') score += is64 ? 6 : -2;
+        else if (is64) score -= 6; // SA-MP and open.mp legacy plugins are 32-bit
+        const dyn = DYNAMIC.test(n);
+        if (t.variant === 'dynamic') score += dyn ? 3 : 0;
+        else if (t.variant && new RegExp(t.variant.replace(/[^a-z0-9]/gi, ''), 'i').test(n)) score += 3;
+        else if (dyn) score -= 1; // the default build is the static one
         if (platform === 'linux' && /\.tar\.gz$|\.tgz$/i.test(n)) score += 1;
         if (!best || score > best.score) best = { a, score };
     }
@@ -126,6 +143,8 @@ export interface BinaryLayout {
     components: string[];
     /** Runtime libraries the plugins need (→ server root, e.g. libmariadb.dll, log-core.dll). */
     libraries: string[];
+    /** binaries left out because the project's server does not use them */
+    skipped: string[];
 }
 
 /**
@@ -133,24 +152,51 @@ export interface BinaryLayout {
  * Archives with a plugins/ folder: only what is inside it is a plugin, other binaries are libraries.
  * Without one: every binary is a plugin. 64-bit duplicates are dropped when a 32-bit build exists.
  */
-export function classifyBinaries(root: string, files: string[], platform: Platform): BinaryLayout {
+/**
+ * Sorts the binaries of an extracted asset. `server` = the project's server: a package that ships the
+ * same library as a SA-MP plugin and as an open.mp component gets the one that server loads.
+ */
+export function classifyBinaries(
+    root: string,
+    files: string[],
+    platform: Platform,
+    server?: 'samp' | 'openmp',
+    opts: { arch?: 'x86' | 'x64'; flatAs?: 'plugin' | 'component' } = {},
+): BinaryLayout {
     const ext = platform === 'windows' ? /\.dll$/i : /\.so$/i;
     const rel = (f: string) => path.relative(root, f).split(path.sep).join('/');
     let bins = files.filter((f) => ext.test(f));
-    // Prefer 32-bit when the same file name exists in several builds
+    // Prefer 32-bit when the same file name exists in several builds (a plugin and a component with
+    // the same name are not builds of each other: they are told apart below)
+    const isComponent = (b: string) => /(^|\/)components\//i.test(rel(b));
     const byName = new Map<string, string[]>();
     for (const b of bins) {
-        const k = path.basename(b).toLowerCase();
+        const k = (isComponent(b) ? 'c:' : 'p:') + path.basename(b).toLowerCase();
         byName.set(k, [...(byName.get(k) ?? []), b]);
     }
-    bins = [...byName.values()].map((list) => list.find((b) => !X64.test(rel(b))) ?? list[0]);
+    const want64 = opts.arch === 'x64';
+    bins = [...byName.values()].map((list) => list.find((b) => X64.test(rel(b)) === want64) ?? list[0]);
     bins = bins.filter((b) => !/(^|\/)(tests?|examples?)\//i.test(rel(b)));
 
     const inDir = (b: string, d: string) => new RegExp(`(^|/)${d}/`, 'i').test(rel(b));
-    const components = bins.filter((b) => inDir(b, 'components'));
+    // components/ = open.mp; a flat archive of a package made only for open.mp holds components too
+    const components = bins.filter((b) => inDir(b, 'components') || (opts.flatAs === 'component' && !inDir(b, 'plugins')));
     const rest = bins.filter((b) => !components.includes(b));
     const hasPluginsDir = rest.some((b) => inDir(b, 'plugins'));
     const plugins = hasPluginsDir ? rest.filter((b) => inDir(b, 'plugins')) : rest;
     const libraries = hasPluginsDir ? rest.filter((b) => !inDir(b, 'plugins')) : [];
-    return { plugins, components, libraries };
+    const skipped: string[] = [];
+    if (server === 'samp') {
+        // SA-MP has no components
+        skipped.push(...components);
+        return { plugins, components: [], libraries, skipped };
+    }
+    if (server === 'openmp') {
+        // the component replaces the legacy plugin of the same name (loading both runs it twice)
+        const names = new Set(components.map((c) => path.basename(c).toLowerCase()));
+        const dup = plugins.filter((p) => names.has(path.basename(p).toLowerCase()));
+        skipped.push(...dup);
+        return { plugins: plugins.filter((p) => !dup.includes(p)), components, libraries, skipped };
+    }
+    return { plugins, components, libraries, skipped };
 }

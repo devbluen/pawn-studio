@@ -3,11 +3,12 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import type { AssetMap, IncludeSpec, TargetSpec } from './target';
 
 export type Platform = 'windows' | 'linux';
 
-/** Glob of the release asset to download per platform, or false to never download release files. */
-export type PluginAssets = false | Partial<Record<Platform, string>>;
+/** Release asset glob(s) per target key ("windows", "linux-x64", "linux-x86-dynamic"…), or false = no binaries. */
+export type PluginAssets = false | AssetMap;
 
 export interface PawnJson {
     name?: string;
@@ -21,10 +22,19 @@ export interface PawnJson {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
     // ── for package authors ──
-    /** Folder(s) with the .inc files the package exports (default: detected). */
-    include?: string | string[];
-    /** Release assets with the .dll/.so binaries (default: detected). */
+    /** Folder(s) with the .inc files the package exports, optionally per server (default: detected). */
+    include?: IncludeSpec;
+    /** Servers the package is made for: "samp", "openmp" or both (default: both). */
+    supports?: string | string[];
+    /** Release assets with the binaries (SA-MP plugins, or files with plugins/ and components/ inside). */
     plugins?: PluginAssets;
+    /** Release assets with open.mp components, when they are separate files from "plugins". */
+    components?: AssetMap;
+    // ── for projects ──
+    /** Where packages are installed: server, os, arch, variant (default: detected). */
+    target?: TargetSpec;
+    /** Compiler for this project (wins over the pawnStudio.* settings). Paths are relative to pawn.json. */
+    compiler?: { path?: string; args?: string[]; includes?: string[] };
     [k: string]: unknown;
 }
 
@@ -40,7 +50,8 @@ export interface LockEntry {
     includePaths: string[]; // relative to the project root
     plugins: string[]; // registered plugin names (as written in server.cfg / config.json)
     files: string[]; // files copied to the server (relative to the project root)
-    asset?: string; // release asset the binaries came from
+    asset?: string; // release asset the binaries came from (several: joined with ", ")
+    target?: string; // what the binaries were chosen for, e.g. "SA-MP · windows-x86"
     dependencies: string[]; // keys (lowercase owner/repo) of this package's direct dependencies
     direct: boolean;
     dev?: boolean;

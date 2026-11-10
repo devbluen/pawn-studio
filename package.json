@@ -2,7 +2,7 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "devbluen",
   "license": "MIT",
   "repository": {
@@ -277,6 +277,12 @@
         "title": "%command.console.clear%",
         "category": "Pawn",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "pawnStudio.packages.check",
+        "title": "%command.packages.check%",
+        "category": "Pawn",
+        "icon": "$(checklist)"
       }
     ],
     "keybindings": [
@@ -492,6 +498,11 @@
           "command": "pawnStudio.showOutput",
           "when": "view == pawnStudio.console",
           "group": "navigation@4"
+        },
+        {
+          "command": "pawnStudio.packages.check",
+          "when": "view == pawnStudio.packages",
+          "group": "1_more"
         }
       ],
       "view/item/context": [
@@ -854,7 +865,7 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "tsc -p ./ && node test/run.js && node test/grammar.js && node test/i18n.js && node test/gta.js",
+    "test": "tsc -p ./ && node test/run.js && node test/packages.js && node test/grammar.js && node test/i18n.js && node test/gta.js",
     "test:live": "tsc -p ./ && node test/live.js",
     "package": "vsce package",
     "test:vscode": "tsc -p ./ && node test/vscode/runTest.js"

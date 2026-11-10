@@ -94,5 +94,6 @@
   "command.tools.attach": "Attached Objects (jogador e veículo)",
   "command.tools.gangzone": "GangZone Creator (retângulo, círculo, polígono)",
   "view.console": "Pawn Studio",
-  "command.console.clear": "Limpar o painel Pawn Studio"
+  "command.console.clear": "Limpar o painel Pawn Studio",
+  "command.packages.check": "Conferir meu pacote (para autores: o que cada servidor e sistema recebe)"
 }

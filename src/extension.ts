@@ -12,6 +12,7 @@ import { findServer, readServerPlugins } from './packages/manifest';
 import { PackagesController } from './packages/ui';
 import { registerTools } from './assets/tools';
 import { registerConsole } from './console';
+import { checkPackage } from './packages/check';
 import { CompileView, PackagesView, ServerView } from './views';
 
 let builder: Builder | undefined;
@@ -178,6 +179,7 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     reg('pawnStudio.packages.init', () => packages.initManifest());
     reg('pawnStudio.packages.signIn', () => packages.signIn());
+    reg('pawnStudio.packages.check', () => checkPackage(pawn));
 
     reg('pawnStudio.server.start', () => startServer(true));
     reg('pawnStudio.server.startNoCompile', () => startServer(false));

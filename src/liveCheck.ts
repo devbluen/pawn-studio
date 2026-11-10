@@ -170,7 +170,7 @@ export class LiveChecker implements vscode.Disposable {
         const isFile = doc.uri.scheme === 'file';
         const entryDir = data.entry ? path.dirname(data.entry) : path.dirname(doc.fileName);
         const docWords = isFile ? this.index.fileWords(doc.fileName)?.words : undefined;
-        const args = cfg().get<string[]>('args') ?? [];
+        const args = this.pawn.compilerArgs();
         const ctx = makeContext({
             src,
             own: parseSymbols(src, { locals: true }),

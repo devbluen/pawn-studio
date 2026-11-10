@@ -108,7 +108,31 @@ export class Pawn {
         return findServer(start ?? '', explicit ? expandPath(explicit) : undefined);
     }
 
+    /** "compiler" from the project's pawn.json, with paths resolved against the project folder. */
+    projectCompiler(): { path?: string; args?: string[]; includes: string[] } {
+        const root = this.projectRoot();
+        let c: { path?: unknown; args?: unknown; includes?: unknown } | undefined;
+        try {
+            c = root ? (readManifest(root)?.compiler as typeof c) : undefined;
+        } catch {
+            c = undefined; // a broken pawn.json is reported by the Packages view
+        }
+        const abs = (p: string) => (path.isAbsolute(p) ? p : path.resolve(root!, p));
+        return {
+            path: typeof c?.path === 'string' && c.path ? abs(c.path) : undefined,
+            args: Array.isArray(c?.args) ? c!.args.map(String) : undefined,
+            includes: Array.isArray(c?.includes) ? c!.includes.filter((x): x is string => typeof x === 'string' && !!x).map(abs) : [],
+        };
+    }
+
+    /** pawncc arguments: pawn.json "compiler.args", else the pawnStudio.args setting. */
+    compilerArgs(): string[] {
+        return this.projectCompiler().args ?? cfg().get<string[]>('args') ?? [];
+    }
+
     compilerPath(entry?: string): string | undefined {
+        const project = this.projectCompiler().path;
+        if (project) return findCompiler(project, []);
         const configured = cfg().get<string>('compilerPath');
         const starts = entry ? [path.dirname(entry)] : [];
         for (const f of vscode.workspace.workspaceFolders ?? []) starts.push(f.uri.fsPath);
@@ -145,7 +169,7 @@ export class Pawn {
 
     /** Include folders in order: configured → packages → automatic (pawno/include). */
     includeDirs(entry?: string): string[] {
-        const configured = (cfg().get<string[]>('includePaths') ?? []).filter(Boolean).map((p) => expandPath(p));
+        const configured = [...this.projectCompiler().includes, ...(cfg().get<string[]>('includePaths') ?? []).filter(Boolean).map((p) => expandPath(p))];
         let pkgs: string[] = [];
         try {
             pkgs = this.packages()?.includeDirs() ?? [];

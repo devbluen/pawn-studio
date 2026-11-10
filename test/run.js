@@ -178,6 +178,26 @@ t('binary layout inside an asset', () => {
   assert.deepStrictEqual(l.components, f('components/pawn-memory.dll'));
   assert.deepStrictEqual(l.plugins, f('plugins/x.dll'));
 });
+t('binary layout: one library shipped as plugin and as open.mp component (audio-cast)', () => {
+  const r = 'R';
+  const f = (...p) => p.map((x) => path.join(r, x));
+  const files = f('plugins/audio-cast.dll', 'components/audio-cast.dll', 'include/audio-cast.inc', 'tools/audio-cast-check.exe');
+  // the two files have the same name but are not two builds of one plugin: both survive without a server
+  let l = classifyBinaries(r, files, 'windows');
+  assert.deepStrictEqual(l.plugins, f('plugins/audio-cast.dll'));
+  assert.deepStrictEqual(l.components, f('components/audio-cast.dll'));
+  // SA-MP server: the plugin, the component is left out
+  l = classifyBinaries(r, files, 'windows', 'samp');
+  assert.deepStrictEqual(l.plugins, f('plugins/audio-cast.dll'));
+  assert.deepStrictEqual(l.components, []);
+  assert.deepStrictEqual(l.skipped, f('components/audio-cast.dll'));
+  // open.mp server: the component, not the legacy plugin too
+  l = classifyBinaries(r, files, 'windows', 'openmp');
+  assert.deepStrictEqual(l.plugins, []);
+  assert.deepStrictEqual(l.components, f('components/audio-cast.dll'));
+  assert.deepStrictEqual(l.skipped, f('plugins/audio-cast.dll'));
+});
+
 t('include folder detection', () => {
   const os = require('os');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pawn-det-'));

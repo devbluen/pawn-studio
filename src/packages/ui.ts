@@ -148,9 +148,10 @@ export class PackagesController implements vscode.Disposable {
         }
         const res = await this.run(t('Installing {0}', name), () => pm.add(name, { requirement }));
         if (res) {
-            const pkg = `${name} (${res.ref})`;
-            const msg = res.plugins.length ? t('{0} installed + plugin(s) {1}.', pkg, res.plugins.join(', ')) : t('{0} installed.', pkg);
-            vscode.window.showInformationMessage(`Pawn: ${msg}`);
+            // what went where: plugin + server.cfg, component, include files
+            const msg = pm.summary(parsed.name, res).replace(/^✔\s*/, '');
+            const details = t('Show details');
+            vscode.window.showInformationMessage(`Pawn: ${msg}`, details).then((x) => x === details && vscode.commands.executeCommand('pawnStudio.console.focus'));
             this._updates.delete(depKey(res));
         }
     }
