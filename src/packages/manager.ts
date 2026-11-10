@@ -92,6 +92,11 @@ export const STDLIBS = ['pawn-lang/samp-stdlib', 'pawn-lang/pawn-stdlib', 'openm
 
 const FIELDS = ['dependencies', 'devDependencies'] as const;
 
+/** Does a package's pawn.json say how to install it (the Pawn Studio fields)? */
+function hasStudioFields(pkg: PawnJson | undefined): boolean {
+    return !!pkg && (pkg.supports !== undefined || pkg.plugins !== undefined || pkg.components !== undefined || pkg.layout !== undefined);
+}
+
 /** sampctl packages: "include_path": "src" (Pawn Studio's own field is "include"). */
 function sampctlIncludePath(pkg: PawnJson | undefined): string | undefined {
     const v = pkg?.['include_path'];
@@ -520,7 +525,22 @@ export class PackageManager {
         fs.rmSync(dir, { recursive: true, force: true });
         extractTo(stripCommonRoot(readArchive(zip)), dir);
 
-        const pkg = readPackageManifest(dir);
+        let pkg = readPackageManifest(dir);
+        // the author updated pawn.json on the main branch but not yet in a tag: use those install fields
+        if (!hasStudioFields(pkg) && typeof (this.gh as { rawFile?: unknown }).rawFile === 'function') {
+            const buf = await this.gh.rawFile(n.owner, n.repo, 'HEAD', 'pawn.json');
+            let main: PawnJson | undefined;
+            try {
+                main = buf ? (JSON.parse(buf.toString('utf8').replace(/^\uFEFF/, '')) as PawnJson) : undefined;
+            } catch {
+                main = undefined;
+            }
+            if (main && hasStudioFields(main)) {
+                const { supports, plugins, components, layout, include } = main;
+                pkg = { ...(pkg ?? {}), supports, plugins, components, layout, ...(include !== undefined ? { include } : {}) };
+                this.log(`  · ${t('Using the install settings of pawn.json from the main branch ({0} has none yet)', target.ref)}`);
+            }
+        }
         const rel = (p: string) => path.relative(this.root, p).split(path.sep).join('/');
         const entry: LockEntry = {
             owner: n.owner,
@@ -807,8 +827,17 @@ export class PackageManager {
                     const target = path.join(dest, path.relative(base, abs));
                     const key = rel(target).toLowerCase();
                     if (fs.existsSync(target) && !ownedByAny.has(key) && !e.files.some((f) => f.toLowerCase() === key)) {
-                        kept.push(path.relative(dest, target).split(path.sep).join('/'));
-                        continue;
+                        // the same file (an earlier manual copy): it becomes the package's; a different one is kept
+                        let same = false;
+                        try {
+                            same = fs.readFileSync(target).equals(fs.readFileSync(abs));
+                        } catch {
+                            same = false;
+                        }
+                        if (!same) {
+                            kept.push(path.relative(dest, target).split(path.sep).join('/'));
+                            continue;
+                        }
                     }
                     try {
                         fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -823,7 +852,7 @@ export class PackageManager {
             walk(base, 0);
         }
         if (copied) this.log(`  + ${t('{0} include file(s) in {1}', copied, rel(dest) || dest)}`);
-        if (kept.length) this.log(`  · ${t('Kept the existing {0} in {1} (not installed by Pawn Studio)', kept.slice(0, 3).join(', ') + (kept.length > 3 ? '…' : ''), rel(dest))}`);
+        if (kept.length) this.log(`  ⚠ ${t('Kept the existing {0} in {1}: it is different from the package\'s and was not installed by Pawn Studio (delete it to use the package\'s)', kept.slice(0, 3).join(', ') + (kept.length > 3 ? '…' : ''), rel(dest))}`);
     }
 
     private uninstallFiles(e: LockEntry, lock: LockFile): void {

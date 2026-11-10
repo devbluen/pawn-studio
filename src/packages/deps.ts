@@ -77,7 +77,7 @@ export function parseRequirement(value: string | undefined): Requirement | undef
     }
     if (!parseRange(v)) return undefined;
     // A bare version ("2.9.6", "v2.9.6") is an exact requirement.
-    const exact = /^=?\s*[A-Za-z_-]{0,10}\d+([.-]\d+){0,2}([-+][0-9A-Za-z.-]+)?$/.test(v) ? v.replace(/^=\s*/, '') : undefined;
+    const exact = /^=?\s*[A-Za-z_-]{0,10}\d+([.-]\d+)*([-+][0-9A-Za-z.-]+)?$/.test(v) ? v.replace(/^=\s*/, '') : undefined;
     return { kind: 'range', range: v, exact };
 }
 
@@ -99,7 +99,8 @@ export function formatRequirement(r: Requirement): string {
 // ───────────────────────── versions ─────────────────────────
 
 export interface Version {
-    nums: [number, number, number];
+    /** at least 3 numbers (missing ones are 0); 4-part tags such as 1.1.0.1 keep the 4th */
+    nums: number[];
     pre: string; // "" = stable
 }
 
@@ -108,12 +109,11 @@ export function parseVersion(v: string): Version | undefined {
     v = v.trim();
     // SA-MP style "R41-4", "r39-6": numbers joined by hyphens are version parts, not a pre-release
     if (/^[A-Za-z_-]*\d+(-\d+)+$/.test(v)) v = v.replace(/(\d)-(?=\d)/g, '$1.');
-    const m = /^[^\d]*?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.\d+)*(?:[-+_ ]?([0-9A-Za-z.-]*))?$/.exec(v.trim());
+    const m = /^[^\d]*?(\d+(?:\.\d+)*)(?:[-+_ ]?([0-9A-Za-z.-]*))?$/.exec(v.trim());
     if (!m) return undefined;
-    return {
-        nums: [parseInt(m[1], 10), m[2] ? parseInt(m[2], 10) : 0, m[3] ? parseInt(m[3], 10) : 0],
-        pre: (m[4] ?? '').replace(/^\+.*$/, '').trim(),
-    };
+    const nums = m[1].split('.').map((x) => parseInt(x, 10));
+    while (nums.length < 3) nums.push(0);
+    return { nums, pre: (m[2] ?? '').replace(/^\+.*$/, '').trim() };
 }
 
 /** "v1.2", "2.9.6", "R41-4", "release-3.1" — a short alphabetic prefix followed by a number. */
@@ -128,8 +128,8 @@ function isPrerelease(tag: string, v: Version): boolean {
 }
 
 function cmp(a: Version, b: Version): number {
-    for (let i = 0; i < 3; i++) {
-        const d = a.nums[i] - b.nums[i];
+    for (let i = 0; i < Math.max(a.nums.length, b.nums.length); i++) {
+        const d = (a.nums[i] ?? 0) - (b.nums[i] ?? 0);
         if (d) return d;
     }
     if (!a.pre && b.pre) return 1;
@@ -154,14 +154,14 @@ function partial(s: string): { nums: number[]; pre: string } | undefined {
     s = s.trim();
     if (/^[A-Za-z_-]*\d+(-\d+)+$/.test(s)) s = s.replace(/(\d)-(?=\d)/g, '$1.'); // R41-4
     s = s.replace(/^[A-Za-z_-]+(?=\d)/, ''); // v1.2, R41, release-3
-    const m = /^(\d+|[xX*])(?:\.(\d+|[xX*]))?(?:\.(\d+|[xX*]))?(?:-([0-9A-Za-z.-]+))?$/.exec(s.trim());
+    const m = /^((?:\d+|[xX*])(?:\.(?:\d+|[xX*]))*)(?:-([0-9A-Za-z.-]+))?$/.exec(s.trim());
     if (!m) return undefined;
     const nums: number[] = [];
-    for (const p of [m[1], m[2], m[3]]) {
-        if (p === undefined || /^[xX*]$/.test(p)) break;
+    for (const p of m[1].split('.')) {
+        if (/^[xX*]$/.test(p)) break;
         nums.push(parseInt(p, 10));
     }
-    return { nums, pre: m[4] ?? '' };
+    return { nums, pre: m[2] ?? '' };
 }
 
 const V = (a: number, b = 0, c = 0, pre = ''): Version => ({ nums: [a, b, c], pre });
@@ -175,7 +175,8 @@ function expand(token: string): Comparator[] | undefined {
     const [a, b, c] = p.nums;
     const n = p.nums.length;
     if (n === 0) return op === '<' || op === '>' ? [{ op: '<', v: V(0) }] : [];
-    const lo = V(a, b ?? 0, c ?? 0, p.pre);
+    // the full version (a 4th part such as 1.1.0.1 counts for >=, =, >…)
+    const lo: Version = { nums: [a, b ?? 0, c ?? 0, ...p.nums.slice(3)], pre: p.pre };
     switch (op) {
         case '^':
             if (a > 0 || n === 1) return [{ op: '>=', v: lo }, { op: '<', v: V(a + 1) }];
@@ -184,14 +185,14 @@ function expand(token: string): Comparator[] | undefined {
         case '~':
             return n === 1 ? [{ op: '>=', v: lo }, { op: '<', v: V(a + 1) }] : [{ op: '>=', v: lo }, { op: '<', v: V(a, (b ?? 0) + 1) }];
         case '>':
-            return n === 3 ? [{ op: '>', v: lo }] : n === 2 ? [{ op: '>=', v: V(a, b + 1) }] : [{ op: '>=', v: V(a + 1) }];
+            return n >= 3 ? [{ op: '>', v: lo }] : n === 2 ? [{ op: '>=', v: V(a, b + 1) }] : [{ op: '>=', v: V(a + 1) }];
         case '<=':
-            return n === 3 ? [{ op: '<=', v: lo }] : n === 2 ? [{ op: '<', v: V(a, b + 1) }] : [{ op: '<', v: V(a + 1) }];
+            return n >= 3 ? [{ op: '<=', v: lo }] : n === 2 ? [{ op: '<', v: V(a, b + 1) }] : [{ op: '<', v: V(a + 1) }];
         case '>=':
         case '<':
             return [{ op, v: lo }];
         default:
-            if (n === 3) return [{ op: '=', v: lo }];
+            if (n >= 3) return [{ op: '=', v: lo }];
             return n === 2 ? [{ op: '>=', v: lo }, { op: '<', v: V(a, b + 1) }] : [{ op: '>=', v: lo }, { op: '<', v: V(a + 1) }];
     }
 }

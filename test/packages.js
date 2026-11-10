@@ -58,6 +58,7 @@ function fakeGitHub(repo) {
         commitSha: async () => sha,
         releaseByTag: async () => release,
         latestRelease: async () => release,
+        rawFile: async (o, r, ref, file) => (repo.main && file === 'pawn.json' ? Buffer.from(JSON.stringify(repo.main)) : undefined),
         downloadSource: async () => zip(Object.fromEntries(Object.entries(repo.source).map(([k, v]) => [`repo-main/${k}`, v]))),
         download: async (url) => {
             const name = url.replace('mem://', '');
@@ -305,6 +306,32 @@ t('layout on a flat archive, one binary for both servers (Pawn.CMD): plugin on S
     assert.ok(r.exists('plugins/pawncmd.dll') && !r.exists('components/pawncmd.dll'), r.log);
     assert.match(r.cfg('server.cfg'), /^plugins pawncmd$/m);
     assert.ok(r.exists('pawno/include/Pawn.CMD.inc'), r.log);
+});
+
+t('the tag has the old (sampctl) pawn.json: the main branch\'s install fields are used', async () => {
+    const repo = {
+        source: { 'pawn.json': JSON.stringify({ user: 'x', repo: 'y', include_path: 'src', resources: [] }), 'src/Pawn.CMD.inc': '' },
+        main: { supports: ['samp', 'openmp'], plugins: { windows: 'pawncmd-*-win32.zip' }, layout: { samp: { plugins: 'pawncmd.*' }, openmp: { components: 'pawncmd.*' } } },
+        assets: { 'pawncmd-3.5.0-win32.zip': zip({ 'pawncmd.dll': 'B', 'Pawn.CMD.inc': '' }) },
+    };
+    const r = await install(repo, 'openmp', { os: 'windows' });
+    assert.ok(r.exists('components/pawncmd.dll') && !r.exists('plugins/pawncmd.dll'), r.log);
+    assert.match(r.log, /main branch/);
+});
+
+t('an identical include already in qawno/include becomes the package\'s; a different one is kept', async () => {
+    const repo = { source: { 'a.inc': '// A', 'b.inc': '// B' }, assets: {} };
+    const { root, server } = project('openmp');
+    fs.mkdirSync(path.join(root, 'qawno/include'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'qawno/include/a.inc'), '// A');
+    fs.writeFileSync(path.join(root, 'qawno/include/b.inc'), '// my edited B');
+    const log = [];
+    const pm = new PackageManager(fakeGitHub(repo), { root, server, skipTransitive: [], log: (m) => log.push(m) });
+    const e = await pm.add('someone/thing');
+    assert.ok(e.files.includes('qawno/include/a.inc'), 'identical: adopted');
+    assert.ok(!e.files.includes('qawno/include/b.inc'));
+    assert.strictEqual(fs.readFileSync(path.join(root, 'qawno/include/b.inc'), 'utf8'), '// my edited B');
+    assert.match(log.join('\n'), /b\.inc/);
 });
 
 (async () => {

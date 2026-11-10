@@ -685,7 +685,9 @@
   "\"layout\": {0} not found in {1}": "\"layout\": {0} não encontrado em {1}",
   "Could not write {0}": "Não foi possível escrever {0}",
   "{0} include file(s) in {1}": "{0} arquivo(s) de include em {1}",
-  "Kept the existing {0} in {1} (not installed by Pawn Studio)": "Mantido o {0} que já existia em {1} (não instalado pelo Pawn Studio)",
   "The tag {0} has a different pawn.json: this check uses the one in this folder (what your next tag will publish). Until then, installers use the tag's.": "A tag {0} tem outro pawn.json: esta conferência usa o desta pasta (o que a sua próxima tag vai publicar). Até lá, quem instalar usa o da tag.",
-  "custom · {0}": "personalizado · {0}"
+  "custom · {0}": "personalizado · {0}",
+  "Using the install settings of pawn.json from the main branch ({0} has none yet)": "Usando as configurações de instalação do pawn.json da branch principal ({0} ainda não tem)",
+  "Kept the existing {0} in {1}: it is different from the package's and was not installed by Pawn Studio (delete it to use the package's)": "Mantido o {0} que já existia em {1}: ele é diferente do pacote e não foi instalado pelo Pawn Studio (apague-o para usar o do pacote)",
+  "{0} is marked as a pre-release on GitHub (it still installs when its tag is the newest version)": "{0} está marcada como pre-release no GitHub (ainda instala quando a tag dela é a versão mais nova)"
 }

@@ -170,13 +170,29 @@ export class GitHub {
         return [...out.values()].sort((a, b) => b.stargazers_count - a.stargazers_count);
     }
 
+    /** One file of a repository at a ref (raw.githubusercontent.com: does not use the API limit). */
+    async rawFile(owner: string, repo: string, ref: string, file: string): Promise<Buffer | undefined> {
+        try {
+            const res = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(ref)}/${file}`, { headers: { 'User-Agent': 'pawn-studio' } });
+            return res.ok ? Buffer.from(await res.arrayBuffer()) : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
     /** Downloads the source code of a ref as a .zip. */
     async downloadSource(owner: string, repo: string, ref: string): Promise<Buffer> {
-        const hasToken = !!(await this.token());
-        const url = hasToken
-            ? `${API}/repos/${owner}/${repo}/zipball/${encodeURIComponent(ref)}`
-            : `https://codeload.github.com/${owner}/${repo}/zip/${encodeURIComponent(ref)}`;
-        return this.download(url);
+        const codeload = `https://codeload.github.com/${owner}/${repo}/zip/${encodeURIComponent(ref)}`;
+        if (!(await this.token())) return this.download(codeload);
+        // signed in (private repositories too): the API zipball, which only accepts the JSON media type
+        // and redirects to the zip itself
+        try {
+            const res = await this.request(`${API}/repos/${owner}/${repo}/zipball/${encodeURIComponent(ref)}`, 'application/vnd.github+json');
+            return Buffer.from(await res.arrayBuffer());
+        } catch (e) {
+            if (e instanceof GitHubError && e.rateLimited) throw e;
+            return this.download(codeload); // public repository: the plain download works
+        }
     }
 
     async download(url: string): Promise<Buffer> {

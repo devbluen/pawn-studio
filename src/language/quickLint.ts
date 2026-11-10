@@ -331,6 +331,8 @@ function checkSemicolons(lines: string[], pp: Set<number>, depthAt: number[], ct
         if (first && ctx.isMacro(first[1])) continue;
         const next = nextCode(ln + 1);
         if (next && /^[{)\]},.?:;&|+\-*/%=<>!^]/.test(next.text)) continue; // continues on the next line (includes a bare `;`)
+        // `return` alone with its value on the next lines (return\n    Dialog_Create(...)\n;)
+        if (stmt === 'return' && next && !/^[}]/.test(next.text) && !CONTROL_START.test(next.text) && !/^(return|break|continue|new|static)\b/.test(next.text)) continue;
         issues.push({
             line: ln,
             col: raw.length - raw.trimStart().length + stmt.length,

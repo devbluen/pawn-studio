@@ -55,7 +55,14 @@ export async function checkPackage(pawn: Pawn): Promise<void> {
 export async function run(pawn: Pick<Pawn, "github">, owner: string, name: string, local: PawnJson | undefined, log: (s?: string) => void): Promise<void> {
     const gh = pawn.github;
     log(local ? `• ${t('pawn.json of this folder: {0}', describeManifest(local))}` : `• ${t('This folder has no pawn.json: installers detect everything from the file names.')}`);
-    const release: Release | undefined = await gh.latestRelease(owner, name).catch(() => undefined);
+    // a missing release is undefined; rate limits and network errors are reported as they are
+    // GitHub's "latest release" skips pre-releases: fall back to the newest release of any kind
+    let release: Release | undefined = await gh.latestRelease(owner, name);
+    if (!release) {
+        const all = await gh.api<Release[]>(`/repos/${owner}/${name}/releases?per_page=5`);
+        release = all.find((r) => !r.draft);
+        if (release?.prerelease) log(`• ${t('{0} is marked as a pre-release on GitHub (it still installs when its tag is the newest version)', release.tag_name)}`);
+    }
     if (!release) {
         log(`• ${t('No GitHub release: the package installs as include-only (the .inc files of the repository).')}`);
         return;

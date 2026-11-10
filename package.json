@@ -2,7 +2,7 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.8.0",
+  "version": "1.8.4",
   "publisher": "devbluen",
   "license": "MIT",
   "repository": {

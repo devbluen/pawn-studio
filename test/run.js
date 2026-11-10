@@ -455,6 +455,25 @@ t('quick analysis: detects common errors', () => {
   }
   assert.ok(r.find((i) => i.code === 'QL-undefined').message.includes('did you mean "SetPlayerPos"'));
 });
+t('quick analysis: return with its value on the next lines', () => {
+  const src = [
+    'Show(playerid)',
+    '{',
+    '    return',
+    '        SetPlayerPos(',
+    '            .playerid = playerid,',
+    '            .x = 1.0, .y = 2.0, .z = 3.0',
+    '        )',
+    '    ;',
+    '}',
+    'Nothing()',
+    '{',
+    '    return',      // a real missing ; (void return before the brace)
+    '}',
+  ].join('\n');
+  const c = codes(lint(src));
+  assert.ok(!c.includes('QL-semicolon@3'), c.join(', '));
+});
 t('quick analysis: no false positives on real-world patterns', () => {
   const src = [
     'main()',
@@ -763,6 +782,18 @@ t('game models: modloader/ wins over the IMG archives', () => {
   assert.ok(l.has('lapd1.dff') && l.has('lapd1.txd'), 'by file name, any case, any depth');
   assert.strictEqual(l.read('LAPD1.dff').toString(), 'D');
   assert.ok(!l.has('wmyclot.dff'), 'folders starting with "." are disabled mods');
+});
+
+t('four-part versions (Dynamic-Dialog 1.1.0.1)', () => {
+  const { parseRequirement, satisfies, latestTag, caretFor, compareVersions } = require('../out/packages/deps');
+  const tags = ['1.0.0', '1.0.1', '1.0.2', '1.1.0', '1.1.0.1'];
+  assert.strictEqual(latestTag(tags), '1.1.0.1');
+  assert.strictEqual(caretFor('1.1.0.1'), '^1.1.0.1');
+  assert.ok(parseRequirement('^1.1.0.1'), 'valid requirement');
+  assert.ok(satisfies('1.1.0.1', '^1.1.0.1') && !satisfies('1.1.0', '^1.1.0.1') && !satisfies('2.0.0', '^1.1.0.1'));
+  assert.ok(satisfies('1.1.0.1', '1.1.0.1') && !satisfies('1.1.0', '1.1.0.1'), 'exact');
+  assert.ok(compareVersions('1.1.0.1', '1.1.0') > 0 && compareVersions('1.1.0', '1.1.0.0') === 0);
+  assert.ok(satisfies('1.1.0.1', '^1.0.4'));
 });
 
 console.log(`\n${n} tests passed`);
