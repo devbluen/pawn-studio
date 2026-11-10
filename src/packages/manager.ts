@@ -20,9 +20,9 @@ import {
     Requirement,
     resolveTag,
 } from './deps';
-import { classifyBinaries, detectIncludeDirs, includeDirsInAsset, pickAsset } from './detect';
+import { applyLayout, BinaryLayout, classifyBinaries, detectIncludeDirs, globMatch, includeDirsInAsset, onlyOtherServerFolder, pickAsset, serverFolder } from './detect';
 import { GitHub, GitHubError, Release, TagInfo } from './github';
-import { includeFor, InstallTarget, resolveTarget, supportsOf, targetLabel } from './target';
+import { includeFor, InstallTarget, localOs, resolveTarget, resolveTargets, supportsOf, targetLabel } from './target';
 import { t } from '../i18n';
 import {
     LockEntry,
@@ -42,7 +42,7 @@ import {
 export interface ManagerOptions {
     root: string; // folder containing pawn.json
     server?: ServerInfo; // where plugins/ and server.cfg live
-    depsDir?: string; // default: <root>/dependencies
+    depsDir?: string; // default: <root>/.pawn-studio/dependencies
     /** Packages skipped when they come as transitive dependencies (e.g. the stdlib, already in pawno/include). */
     skipTransitive?: string[];
     log?: (msg: string) => void;
@@ -87,6 +87,11 @@ export const STDLIBS = ['pawn-lang/samp-stdlib', 'pawn-lang/pawn-stdlib', 'openm
 
 const FIELDS = ['dependencies', 'devDependencies'] as const;
 
+/** Folder of everything Pawn Studio downloads or generates for a project (git-ignored on its own). */
+export const STUDIO_DIR = '.pawn-studio';
+/** Where packages were installed before 1.4 (moved on the first read of the lock). */
+const LEGACY_DEPS = 'dependencies';
+
 export class PackageManager {
     readonly root: string;
     readonly depsDir: string;
@@ -98,7 +103,7 @@ export class PackageManager {
         private opts: ManagerOptions,
     ) {
         this.root = path.resolve(opts.root);
-        this.depsDir = opts.depsDir ?? path.join(this.root, 'dependencies');
+        this.depsDir = opts.depsDir ?? path.join(this.root, STUDIO_DIR, 'dependencies');
         this.log = opts.log ?? (() => undefined);
         this.skip = new Set((opts.skipTransitive ?? STDLIBS).map((s) => s.toLowerCase()));
     }
@@ -128,7 +133,56 @@ export class PackageManager {
     }
 
     lock(): LockFile {
-        return readLock(this.root);
+        const lock = readLock(this.root);
+        if (this.migrateLegacy(lock)) writeLock(this.root, lock);
+        return lock;
+    }
+
+    /**
+     * Packages installed in dependencies/ by older versions move to .pawn-studio/dependencies/.
+     * Only the folders listed in pawn-lock.json move (a sampctl dependencies/ folder is left alone).
+     */
+    private migrateLegacy(lock: LockFile): boolean {
+        const target = path.relative(this.root, this.depsDir).split(path.sep).join('/');
+        if (target === LEGACY_DEPS) return false;
+        let moved = false;
+        for (const e of Object.values(lock.packages)) {
+            if (!e.dir.startsWith(LEGACY_DEPS + '/')) continue;
+            const from = path.resolve(this.root, e.dir);
+            const toRel = target + e.dir.slice(LEGACY_DEPS.length);
+            const to = path.resolve(this.root, toRel);
+            try {
+                if (fs.existsSync(from) && !fs.existsSync(to)) {
+                    fs.mkdirSync(path.dirname(to), { recursive: true });
+                    fs.renameSync(from, to);
+                } else if (!fs.existsSync(to)) continue; // not on disk: reinstalled into the new folder later
+            } catch {
+                continue; // a file in use: try again next time
+            }
+            const swap = (p: string) => (p === e.dir || p.startsWith(e.dir + '/') ? toRel + p.slice(e.dir.length) : p);
+            e.includePaths = e.includePaths.map(swap);
+            e.dir = toRel;
+            moved = true;
+        }
+        if (moved) {
+            this.ensureStudioDir();
+            const old = path.join(this.root, LEGACY_DEPS);
+            try {
+                if (fs.existsSync(old) && !fs.readdirSync(old).length) fs.rmdirSync(old);
+            } catch {
+                /* keep it */
+            }
+            this.log(`· ${t('Packages moved from dependencies/ to {0}/', target)}`);
+        }
+        return moved;
+    }
+
+    /** .pawn-studio/ with a .gitignore of its own, so nobody commits the downloads. */
+    private ensureStudioDir(): void {
+        const dir = path.join(this.root, STUDIO_DIR);
+        fs.mkdirSync(dir, { recursive: true });
+        const gi = path.join(dir, '.gitignore');
+        if (!fs.existsSync(gi)) fs.writeFileSync(gi, '# Pawn Studio downloads (packages): installed again from pawn.json + pawn-lock.json\n*\n');
     }
 
     ensureManifest(defaults: Partial<PawnJson> = {}): PawnJson {
@@ -427,6 +481,7 @@ export class PackageManager {
         const label = target.refType === 'branch' ? `${target.ref}@${target.commit.slice(0, 7)}` : target.ref;
         this.log(`↓ ${displayName(n)} (${label})`);
         const zip = await this.gh.downloadSource(n.owner, n.repo, target.commit);
+        if (this.depsDir.startsWith(path.join(this.root, STUDIO_DIR))) this.ensureStudioDir();
         const dir = path.join(this.depsDir, this.dirNameFor(n, previous, lock));
         if (previous) this.uninstallFiles(previous, lock);
         fs.rmSync(dir, { recursive: true, force: true });
@@ -471,16 +526,24 @@ export class PackageManager {
     }
 
     /**
-     * Downloads the release asset(s) for the target, then places plugins in plugins/ (registered in
-     * server.cfg / config.json), components in components/ (open.mp) and the runtime libraries next to
-     * the server executable. .inc folders inside the assets are added too.
+     * Downloads the release asset(s) for every target system, then places plugins in plugins/
+     * (registered in server.cfg / config.json for the server that runs here), components in
+     * components/ (open.mp) and runtime libraries next to the server executable. .inc folders inside
+     * the assets are added to the include path.
      */
     private async installBinaries(n: PackageName, target: Resolved, pkg: PawnJson | undefined, entry: LockEntry, pkgDir: string): Promise<void> {
-        const tgt = this.target();
+        let spec;
+        try {
+            spec = this.manifest()?.target;
+        } catch {
+            spec = undefined;
+        }
+        const targets = resolveTargets(spec, this.opts.server);
+        const kind = targets[0].server;
         const supports = supportsOf(pkg?.supports);
         const server = this.opts.server;
-        if (tgt.server && !supports.includes(tgt.server)) {
-            if (tgt.server === 'samp') {
+        if (kind && !supports.includes(kind)) {
+            if (kind === 'samp') {
                 // a component-only package cannot run on SA-MP
                 this.log(`  ⚠ ${t('{0} is made for open.mp only: its binaries are not installed on a SA-MP server', displayName(n))}`);
                 return;
@@ -495,22 +558,6 @@ export class PackageManager {
             if (declared) this.log(`  ⚠ ${t('{0} declares plugins but its release has no files', displayName(n))}`);
             return;
         }
-
-        // which files: the open.mp component asset when the author ships one, else the plugins asset
-        const wantComponents = !!pkg?.components && tgt.server !== 'samp';
-        const wantPlugins = pkg?.plugins !== false && (!wantComponents || !tgt.server);
-        const picks: Array<{ asset: (typeof release.assets)[number]; role: 'plugin' | 'component' }> = [];
-        if (wantComponents) {
-            const c = pickAsset(release.assets, tgt, pkg!.components);
-            if (c) picks.push({ asset: c, role: 'component' });
-            else this.log(`  ⚠ ${t('No open.mp component file in release {0} for {1}', release.tag_name, targetLabel(tgt))}`);
-        }
-        if (wantPlugins) {
-            const p = pickAsset(release.assets, tgt, pkg?.plugins);
-            if (p && !picks.some((x) => x.asset === p)) picks.push({ asset: p, role: 'plugin' });
-            else if (!p && pkg?.plugins) this.log(`  ⚠ ${t('No file in release {0} for {1} (pawn.json keys: {2})', release.tag_name, targetLabel(tgt), Object.keys(pkg.plugins).join(', '))}`);
-        }
-        if (!picks.length) return;
 
         const resDir = path.join(pkgDir, '.resources');
         fs.rmSync(resDir, { recursive: true, force: true });
@@ -527,61 +574,123 @@ export class PackageManager {
             if (!entry.files.includes(rel(dest))) entry.files.push(rel(dest));
             return dest;
         };
+        // one download per release file, even when it serves several systems
+        const extracted = new Map<string, { dir: string; files: string[] }>();
+        const fetchAsset = async (asset: (typeof release.assets)[number]) => {
+            let x = extracted.get(asset.name);
+            if (x) return x;
+            this.log(`  ↓ ${asset.name} (${(asset.size / 1024).toFixed(0)} KB, release ${release!.tag_name})`);
+            const buf = await this.gh.download(asset.browser_download_url);
+            const dir = extracted.size || targets.length > 1 || (pkg?.components && pkg.plugins) ? path.join(resDir, String(extracted.size)) : resDir;
+            let files: string[];
+            if (/\.(zip|tar\.gz|tgz)$/i.test(asset.name)) files = extractTo(readArchive(buf), dir);
+            else {
+                fs.mkdirSync(dir, { recursive: true });
+                const f = path.join(dir, asset.name);
+                fs.writeFileSync(f, buf);
+                files = [f];
+            }
+            x = { dir, files };
+            extracted.set(asset.name, x);
+            return x;
+        };
+
         const assetIncludes: string[] = [];
         let anyBinary = false;
-        for (const { asset, role } of picks) {
-            this.log(`  ↓ ${asset.name} (${(asset.size / 1024).toFixed(0)} KB, release ${release.tag_name})`);
-            const buf = await this.gh.download(asset.browser_download_url);
-            const into = picks.length > 1 ? path.join(resDir, role) : resDir;
-            let written: string[];
-            if (/\.(zip|tar\.gz|tgz)$/i.test(asset.name)) {
-                written = extractTo(readArchive(buf), into);
-            } else {
-                fs.mkdirSync(into, { recursive: true });
-                const f = path.join(into, asset.name);
-                fs.writeFileSync(f, buf);
-                written = [f];
+        const labels: string[] = [];
+        for (const [i, tgt] of targets.entries()) {
+            const runsHere = i === 0 && tgt.os === localOs(server);
+            if (targets.length > 1) this.log(`  [${targetLabel(tgt)}${runsHere ? '' : ' — ' + t('files only, for another machine')}]`);
+            // which files: the open.mp component asset when the author ships one, else the plugins asset
+            const wantComponents = !!pkg?.components && tgt.server !== 'samp';
+            const wantPlugins = pkg?.plugins !== false && (!wantComponents || !tgt.server);
+            const picks: Array<{ asset: (typeof release.assets)[number]; role: 'plugin' | 'component' }> = [];
+            if (wantComponents) {
+                const c = pickAsset(release.assets, tgt, pkg!.components);
+                if (c) picks.push({ asset: c, role: 'component' });
+                else this.log(`  ⚠ ${t('No open.mp component file in release {0} for {1}', release.tag_name, targetLabel(tgt))}`);
             }
-            const flatAs = role === 'component' || (supports.length === 1 && supports[0] === 'openmp') ? 'component' : 'plugin';
-            const layout = classifyBinaries(into, written, tgt.os, tgt.server, { arch: tgt.arch, flatAs });
-            if (!layout.plugins.length && !layout.components.length) {
-                if (declared) this.log(`  ⚠ ${t('No .dll/.so found inside {0}', asset.name)}`);
-                continue;
+            if (wantPlugins) {
+                // a file declared as the open.mp component is never taken as the plugin (patterns may overlap)
+                const componentFiles = new Set(pkg?.components ? release.assets.filter((x) => Object.values(pkg.components!).flat().some((g) => globMatch(g, x.name))).map((x) => x.name) : []);
+                const p = pickAsset(release.assets.filter((x) => !componentFiles.has(x.name)), tgt, pkg?.plugins);
+                if (p && !picks.some((x) => x.asset === p)) picks.push({ asset: p, role: 'plugin' });
+                else if (!p && pkg?.plugins) this.log(`  ⚠ ${t('No file in release {0} for {1} (pawn.json keys: {2})', release.tag_name, targetLabel(tgt), Object.keys(pkg.plugins).join(', '))}`);
             }
-            anyBinary = true;
-            for (const p of layout.plugins) {
-                const dest = copy(p, path.join(serverDir, 'plugins'));
-                if (server) {
-                    const name = pluginConfigName(dest, server.kind, tgt.os);
-                    if (fs.existsSync(server.configFile) || server.kind === 'samp') setServerPlugin(server, name, true);
-                    if (!entry.plugins.includes(name)) entry.plugins.push(name);
+            for (const { asset, role } of picks) {
+                const got = await fetchAsset(asset);
+                let dir = got.dir;
+                let files = got.files;
+                let layout: BinaryLayout;
+                let includeDirs: string[];
+                if (pkg?.layout) {
+                    // the author said where everything is
+                    const l = applyLayout(got.dir, got.files, pkg.layout, tgt.server, tgt.os);
+                    for (const m of l.missing) this.log(`  ⚠ ${t('"layout": {0} not found in {1}', m, asset.name)}`);
+                    layout = l;
+                    includeDirs = l.includes;
+                } else {
+                // one folder per server inside the archive (samp/…, open.mp/…): only this server's folder
+                if (tgt.server) {
+                    const own = serverFolder(got.dir, tgt.server);
+                    if (own) {
+                        dir = own;
+                        files = got.files.filter((f) => f.startsWith(own + path.sep));
+                        this.log(`  · ${t('Using the {0} folder of the archive', rel(own).split('/').pop()!)}`);
+                    } else if (onlyOtherServerFolder(got.dir, tgt.server)) {
+                        this.log(`  ⚠ ${t('{0} has no folder for this server', asset.name)}`);
+                        continue;
+                    }
                 }
-                this.log(`  + plugin ${path.basename(dest)}`);
+                const flatAs = role === 'component' || (supports.length === 1 && supports[0] === 'openmp') ? 'component' : 'plugin';
+                layout = classifyBinaries(dir, files, tgt.os, tgt.server, { arch: tgt.arch, flatAs });
+                includeDirs = includeDirsInAsset(dir).map((inc) => path.relative(got.dir, path.join(dir, inc)).split(path.sep).join('/'));
+                }
+                if (!layout.plugins.length && !layout.components.length) {
+                    if (declared) this.log(`  ⚠ ${t('No .dll/.so for {0} inside {1}', tgt.os, asset.name)}`);
+                    continue;
+                }
+                anyBinary = true;
+                if (!labels.includes(targetLabel(tgt))) labels.push(targetLabel(tgt));
+                for (const p of layout.plugins) {
+                    const dest = copy(p, path.join(serverDir, 'plugins'));
+                    if (server) {
+                        const name = pluginConfigName(dest, server.kind, tgt.os);
+                        if (runsHere) {
+                            if (fs.existsSync(server.configFile) || server.kind === 'samp') setServerPlugin(server, name, true);
+                            if (!entry.plugins.includes(name)) entry.plugins.push(name);
+                        } else if (server.kind === 'samp') {
+                            // one server.cfg cannot name both: Linux needs the .so in the name
+                            this.log(`  · ${t('On the {0} server, server.cfg needs: plugins {1}', tgt.os, name)}`);
+                        }
+                    }
+                    this.log(`  + plugin ${path.basename(dest)}`);
+                }
+                for (const c of layout.components) {
+                    copy(c, path.join(serverDir, 'components'));
+                    this.log(`  + component ${path.basename(c)}`);
+                }
+                for (const l of layout.libraries) {
+                    copy(l, serverDir);
+                    this.log(`  + ${path.basename(l)}`);
+                }
+                for (const sk of layout.skipped) {
+                    this.log(
+                        tgt.server === 'samp'
+                            ? `  · ${t('{0} skipped: open.mp component, this is a SA-MP server', path.basename(sk))}`
+                            : `  · ${t('{0} skipped: the open.mp component version is used instead', path.basename(sk))}`,
+                    );
+                }
+                if (i === 0) for (const inc of includeDirs) assetIncludes.push(rel(path.join(got.dir, inc)));
             }
-            for (const c of layout.components) {
-                copy(c, path.join(serverDir, 'components'));
-                this.log(`  + component ${path.basename(c)}`);
-            }
-            for (const l of layout.libraries) {
-                copy(l, serverDir);
-                this.log(`  + ${path.basename(l)}`);
-            }
-            for (const s of layout.skipped) {
-                this.log(
-                    tgt.server === 'samp'
-                        ? `  · ${t('{0} skipped: open.mp component, this is a SA-MP server', path.basename(s))}`
-                        : `  · ${t('{0} skipped: the open.mp component version is used instead', path.basename(s))}`,
-                );
-            }
-            for (const inc of includeDirsInAsset(into)) assetIncludes.push(rel(path.join(into, inc)));
         }
         if (!anyBinary && !assetIncludes.length) {
             // a source/include-only asset: the repository source is already installed
             fs.rmSync(resDir, { recursive: true, force: true });
             return;
         }
-        entry.asset = picks.map((p) => p.asset.name).join(', ');
-        entry.target = targetLabel(tgt);
+        entry.asset = [...extracted.keys()].join(', ');
+        entry.target = labels.join(' + ') || targetLabel(targets[0]);
         // the .inc files of the release match its binaries: they come first, and the repository source
         // (SDKs, C++ code…) is not kept when the release brings everything
         if (assetIncludes.length) {

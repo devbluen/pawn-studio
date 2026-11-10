@@ -104,7 +104,7 @@ t('one file per system with plugins/ and components/ inside (SA-MP gets the plug
     assert.ok(r.exists('plugins/thing.dll') && !r.exists('components/thing.dll'), r.log);
     assert.match(r.cfg('server.cfg'), /^plugins thing$/m);
     assert.ok(r.entry.includePaths.some((p) => p.endsWith('.resources/include')), 'include from the release');
-    assert.ok(!r.exists('dependencies/thing/src'), 'source not kept when the release brings everything');
+    assert.ok(!r.exists('.pawn-studio/dependencies/thing/src'), 'source not kept when the release brings everything');
     r = await install(repo, 'openmp', { os: 'windows' });
     assert.ok(r.exists('components/thing.dll') && !r.exists('plugins/thing.dll'), r.log);
 });
@@ -112,7 +112,8 @@ t('one file per system with plugins/ and components/ inside (SA-MP gets the plug
 t('separate files: "plugins" for SA-MP and "components" for open.mp', async () => {
     const repo = {
         source: { 'pawn.json': JSON.stringify({ supports: ['samp', 'openmp'], plugins: { windows: 'thing-*-win32.zip' }, components: { windows: 'thing-omp-*-win32.zip' } }) },
-        assets: { 'thing-1.0.0-win32.zip': zip({ 'thing.dll': 'P' }), 'thing-omp-1.0.0-win32.zip': zip({ 'thing.dll': 'C' }) },
+        // the component file comes first and the plugin pattern matches it too: it must still not be taken as the plugin
+        assets: { 'thing-omp-1.0.0-win32.zip': zip({ 'thing.dll': 'C' }), 'thing-1.0.0-win32.zip': zip({ 'thing.dll': 'P' }) },
     };
     let r = await install(repo, 'samp', { os: 'windows' });
     assert.deepStrictEqual(r.downloads, ['thing-1.0.0-win32.zip']);
@@ -140,8 +141,15 @@ t('systems, architectures and variants: the project "target" picks the file', as
     assert.strictEqual(await pick({ os: 'linux', variant: 'dynamic' }), 'thing-linux-dynssl.zip');
     // a variant the author did not publish falls back to the default build of that system
     assert.strictEqual(await pick({ os: 'linux', variant: 'musl' }), 'thing-linux.zip');
-    const r = await install(repo, 'samp', { os: 'linux' });
-    assert.match(r.cfg('server.cfg'), /^plugins thing\.so$/m, 'Linux SA-MP config keeps .so');
+    // the server here is Windows: the Linux file is for another machine, the log says what its server.cfg needs
+    let r = await install(repo, 'samp', { os: 'linux' });
+    assert.ok(r.exists('plugins/thing.so') && !/thing/.test(r.cfg('server.cfg')), r.log);
+    assert.match(r.log, /plugins thing\.so/);
+    // test on Windows, host on Linux: both files, server.cfg for the Windows server
+    r = await install(repo, 'samp', { os: ['windows', 'linux'] });
+    assert.ok(r.exists('plugins/thing.dll') && r.exists('plugins/thing.so'), r.log);
+    assert.match(r.cfg('server.cfg'), /^plugins thing$/m);
+    assert.deepStrictEqual(r.downloads.sort(), ['thing-linux.zip', 'thing-win32.zip']);
 });
 
 t('automatic detection by file name (no pawn.json): arch and variant', async () => {
@@ -167,9 +175,74 @@ t('"supports": open.mp-only package on SA-MP is refused, flat files are componen
 t('"include" per server', async () => {
     const repo = { source: { 'pawn.json': JSON.stringify({ plugins: false, include: { samp: 'include/samp', openmp: 'include/omp' } }), 'include/samp/thing.inc': '', 'include/omp/thing.inc': '' }, assets: {} };
     let r = await install(repo, 'samp');
-    assert.deepStrictEqual(r.entry.includePaths, ['dependencies/thing/include/samp']);
+    assert.deepStrictEqual(r.entry.includePaths, ['.pawn-studio/dependencies/thing/include/samp']);
     r = await install(repo, 'openmp');
-    assert.deepStrictEqual(r.entry.includePaths, ['dependencies/thing/include/omp']);
+    assert.deepStrictEqual(r.entry.includePaths, ['.pawn-studio/dependencies/thing/include/omp']);
+});
+
+t('packages installed in dependencies/ by older versions move to .pawn-studio/dependencies/', async () => {
+    const { root, server } = project('samp');
+    fs.mkdirSync(path.join(root, 'dependencies/thing/include'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'dependencies/thing/include/thing.inc'), '');
+    fs.mkdirSync(path.join(root, 'dependencies/sampctl-pkg'), { recursive: true }); // not ours: stays
+    fs.writeFileSync(path.join(root, 'pawn-lock.json'), JSON.stringify({ lockVersion: 2, packages: { 'someone/thing': { owner: 'someone', repo: 'thing', requirement: '^1', ref: 'v1.0.0', refType: 'tag', dir: 'dependencies/thing', includePaths: ['dependencies/thing/include'], plugins: [], files: [], dependencies: [], direct: true, installedAt: '' } } }));
+    const log = [];
+    const pm = new PackageManager(fakeGitHub({ source: {}, assets: {} }), { root, server, skipTransitive: [], log: (m) => log.push(m) });
+    const e = pm.lock().packages['someone/thing'];
+    assert.strictEqual(e.dir, '.pawn-studio/dependencies/thing');
+    assert.deepStrictEqual(e.includePaths, ['.pawn-studio/dependencies/thing/include']);
+    assert.ok(fs.existsSync(path.join(root, '.pawn-studio/dependencies/thing/include/thing.inc')));
+    assert.ok(fs.existsSync(path.join(root, '.pawn-studio/.gitignore')));
+    assert.ok(fs.existsSync(path.join(root, 'dependencies/sampctl-pkg')), 'folders that are not in the lock stay');
+    assert.match(fs.readFileSync(path.join(root, 'pawn-lock.json'), 'utf8'), /\.pawn-studio\/dependencies\/thing/);
+    assert.match(log.join('\n'), /moved from dependencies\//i);
+});
+
+t('archive with one folder per server (samp/… and open.mp/…, like Pawn.Json)', async () => {
+    const layout = {
+        'samp/plugins/PawnJson.dll': 'P', 'samp/pawno/include/PawnJson.inc': '// samp',
+        'open.mp/components/PawnJson.dll': 'C', 'open.mp/qawno/include/PawnJson.inc': '// omp',
+        'README.md': '',
+    };
+    const repo = { source: { 'PawnJson.inc': '', 'src/main.cpp': '' }, assets: { 'PawnJson-1.0.0-windows-x86.zip': zip(layout), 'PawnJson-1.0.0-linux-x86.zip': zip({}) } };
+    let r = await install(repo, 'samp', { os: 'windows' });
+    assert.ok(r.exists('plugins/PawnJson.dll') && !r.exists('components/PawnJson.dll'), r.log);
+    assert.match(r.cfg('server.cfg'), /^plugins PawnJson$/m);
+    assert.deepStrictEqual(r.entry.includePaths, ['.pawn-studio/dependencies/thing/.resources/samp/pawno/include'], 'only the SA-MP include');
+    r = await install(repo, 'openmp', { os: 'windows' });
+    assert.ok(r.exists('components/PawnJson.dll') && !r.exists('plugins/PawnJson.dll'), r.log);
+    assert.deepStrictEqual(r.entry.includePaths, ['.pawn-studio/dependencies/thing/.resources/open.mp/qawno/include'], 'only the open.mp include');
+    assert.strictEqual(fs.readFileSync(path.join(r.root, 'components/PawnJson.dll'), 'utf8'), 'C');
+});
+
+t('"layout" declares where each file is inside the archive', async () => {
+    const files = {
+        'PawnJson-1.0.0/bin/legacy/PawnJson.dll': 'P',
+        'PawnJson-1.0.0/bin/omp/PawnJson.dll': 'C',
+        'PawnJson-1.0.0/bin/omp/extra.dll': 'X',
+        'PawnJson-1.0.0/inc/samp/PawnJson.inc': '',
+        'PawnJson-1.0.0/inc/omp/PawnJson.inc': '',
+        'PawnJson-1.0.0/libs/libjson.dll': 'L',
+    };
+    const manifest = {
+        plugins: { windows: 'PawnJson-*.zip' },
+        layout: {
+            samp: { plugins: 'bin/legacy', include: 'inc/samp' },
+            openmp: { components: 'bin/omp/PawnJson.dll', include: 'inc/omp' },
+            all: { libraries: 'libs/*.dll' },
+        },
+    };
+    const repo = { source: { 'pawn.json': JSON.stringify(manifest) }, assets: { 'PawnJson-1.0.0.zip': zip(files) } };
+    let r = await install(repo, 'samp', { os: 'windows' });
+    assert.ok(r.exists('plugins/PawnJson.dll') && !r.exists('components/PawnJson.dll') && r.exists('libjson.dll'), r.log);
+    assert.deepStrictEqual(r.entry.includePaths, ['.pawn-studio/dependencies/thing/.resources/PawnJson-1.0.0/inc/samp'], 'the top folder of the archive is looked through');
+    r = await install(repo, 'openmp', { os: 'windows' });
+    assert.ok(r.exists('components/PawnJson.dll') && !r.exists('components/extra.dll') && !r.exists('plugins/PawnJson.dll'), 'only the declared component: ' + r.log);
+    assert.deepStrictEqual(r.entry.includePaths, ['.pawn-studio/dependencies/thing/.resources/PawnJson-1.0.0/inc/omp']);
+    // a path that is not in the archive is reported
+    repo.source['pawn.json'] = JSON.stringify({ ...manifest, layout: { samp: { plugins: 'nope/plugins' } } });
+    r = await install(repo, 'samp', { os: 'windows' });
+    assert.match(r.log, /"layout": nope\/plugins/);
 });
 
 (async () => {

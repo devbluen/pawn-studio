@@ -176,7 +176,7 @@ export class PawnDebugSession implements vscode.DebugAdapter {
         this.server = server;
 
         if (args.compile !== false) {
-            this.out(t('Compiling before starting...'));
+            this.out(t('Checking the gamemode before starting...'));
             const r = await this.hooks.compileForLaunch(args.target);
             if (!r) {
                 this.respond(req, undefined, false, t('Compilation cancelled.'));

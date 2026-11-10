@@ -573,7 +573,7 @@ function mapStrings(): Record<string, string> {
 /** easyDialog in the project? (Dialog_Show or "Dialog:" handlers in open/visible Pawn files) */
 async function detectDialogStyle(): Promise<'easy' | 'native'> {
     try {
-        const files = await vscode.workspace.findFiles('**/*.{pwn,inc}', '**/{node_modules,dependencies,pawno,qawno}/**', 400);
+        const files = await vscode.workspace.findFiles('**/*.{pwn,inc}', '**/{node_modules,dependencies,.pawn-studio,pawno,qawno}/**', 400);
         let easy = 0;
         let native = 0;
         for (const f of files.slice(0, 400)) {

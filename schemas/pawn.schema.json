@@ -58,6 +58,68 @@
           }
         }
       ]
+    },
+    "layoutRoles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "plugins": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Folder or pattern of the plugins inside the archive, e.g. \"samp/plugins\" or \"samp/plugins/*.dll\"."
+        },
+        "components": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Folder or pattern of the open.mp components, e.g. \"open.mp/components\"."
+        },
+        "libraries": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Runtime libraries that go next to the server executable, e.g. \"libs\"."
+        },
+        "include": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Folder(s) with the .inc files, e.g. \"samp/pawno/include\"."
+        }
+      }
     }
   },
   "properties": {
@@ -208,11 +270,33 @@
           "description": "Server the packages are for (default: detected from samp-server / omp-server)."
         },
         "os": {
-          "enum": [
-            "windows",
-            "linux"
+          "description": "System(s) of the server. Several = files for each (e.g. [\"windows\", \"linux\"]: test on Windows, host on Linux); the first one that matches this machine gets its config file updated.",
+          "oneOf": [
+            {
+              "enum": [
+                "windows",
+                "linux"
+              ]
+            },
+            {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "windows",
+                  "linux"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 1
+            }
           ],
-          "description": "System of the server (e.g. linux when you develop on Windows and deploy to Linux)."
+          "examples": [
+            [
+              "windows",
+              "linux"
+            ],
+            "linux"
+          ]
         },
         "arch": {
           "enum": [
@@ -262,6 +346,40 @@
           "description": "Extra include folders (before the pawnStudio.includePaths setting)."
         }
       }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "For package authors: where each kind of file is inside the release archive, per server. Paths are relative to the archive root. When set, only what is declared here is installed (no detection).",
+      "properties": {
+        "samp": {
+          "$ref": "#/definitions/layoutRoles",
+          "description": "Files for SA-MP servers."
+        },
+        "openmp": {
+          "$ref": "#/definitions/layoutRoles",
+          "description": "Files for open.mp servers."
+        },
+        "all": {
+          "$ref": "#/definitions/layoutRoles",
+          "description": "Files for both servers."
+        }
+      },
+      "defaultSnippets": [
+        {
+          "label": "one folder per server",
+          "body": {
+            "samp": {
+              "plugins": "${1:samp/plugins}",
+              "include": "${2:samp/pawno/include}"
+            },
+            "openmp": {
+              "components": "${3:open.mp/components}",
+              "include": "${4:open.mp/qawno/include}"
+            }
+          }
+        }
+      ]
     }
   }
 }

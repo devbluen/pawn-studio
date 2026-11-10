@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { Pawn } from '../context';
 import { t } from '../i18n';
 import { extractTo, readArchive } from './archive';
-import { classifyBinaries, includeDirsInAsset, pickAsset } from './detect';
+import { applyLayout, classifyBinaries, globMatch, includeDirsInAsset, pickAsset, serverFolder } from './detect';
 import { Release } from './github';
 import { PawnJson, readPackageManifest, ServerKind } from './manifest';
 import { InstallTarget, SERVER_NAME, supportsOf, targetLabel } from './target';
@@ -116,23 +116,39 @@ export async function run(pawn: Pick<Pawn, "github">, owner: string, name: strin
                 if (server === 'samp') continue;
             }
             const useComponents = !!pkg?.components && server === 'openmp';
-            const asset = useComponents ? pickAsset(release.assets, tgt, pkg!.components) : pickAsset(release.assets, tgt, pkg?.plugins);
+            const componentFiles = new Set(pkg?.components ? release.assets.filter((x) => Object.values(pkg.components!).flat().some((g) => globMatch(g, x.name))).map((x) => x.name) : []);
+            const asset = useComponents ? pickAsset(release.assets, tgt, pkg!.components) : pickAsset(release.assets.filter((x) => !componentFiles.has(x.name)), tgt, pkg?.plugins);
             if (!asset) {
                 const declared = useComponents ? pkg?.components : pkg?.plugins;
                 log(`  ${label} ✖ ${declared ? t('no file for this target in pawn.json') : t('no release file matches this system')}`);
                 if (!base.variant && base.arch === 'x86' && supports.includes(server)) problems++;
                 continue;
             }
-            const files = await filesOf(asset.name);
-            const root = path.join(tmp, String([...cache.keys()].indexOf(asset.name)));
-            const flatAs = useComponents || (supports.length === 1 && supports[0] === 'openmp') ? 'component' : 'plugin';
-            const layout = classifyBinaries(root, files, tgt.os, server, { arch: tgt.arch, flatAs });
+            let files = await filesOf(asset.name);
+            let root = path.join(tmp, String([...cache.keys()].indexOf(asset.name)));
+            let layout;
+            let hasInc: boolean;
+            if (pkg?.layout) {
+                const l = applyLayout(root, files, pkg.layout, server, tgt.os);
+                for (const m of l.missing) log(`  ${label} ⚠ ${t('"layout": {0} not found in {1}', m, asset.name)}`);
+                layout = l;
+                hasInc = l.includes.length > 0;
+            } else {
+                const own = serverFolder(root, server);
+                if (own) {
+                    root = own;
+                    files = files.filter((f) => f.startsWith(own + path.sep));
+                }
+                const flatAs = useComponents || (supports.length === 1 && supports[0] === 'openmp') ? 'component' : 'plugin';
+                layout = classifyBinaries(root, files, tgt.os, server, { arch: tgt.arch, flatAs });
+                hasInc = includeDirsInAsset(root).length > 0;
+            }
             const what = [
                 ...layout.plugins.map((p) => `plugins/${path.basename(p)}${server === 'samp' ? ' (server.cfg)' : ' (legacy_plugins)'}`),
                 ...layout.components.map((c) => `components/${path.basename(c)}`),
                 ...layout.libraries.map((l) => path.basename(l)),
             ];
-            const incs = includeDirsInAsset(root).length ? ` + ${t('include from the release')}` : '';
+            const incs = hasInc ? ` + ${t('include from the release')}` : '';
             if (!what.length) {
                 log(`  ${label} ⚠ ${asset.name}: ${t('no .dll/.so for this system inside')}`);
                 problems++;
@@ -153,5 +169,6 @@ function describeManifest(m: PawnJson): string {
     else if (m.plugins) parts.push(`plugins: ${Object.keys(m.plugins).join(', ')}`);
     if (m.components) parts.push(`components: ${Object.keys(m.components).join(', ')}`);
     if (m.include) parts.push(`include=${JSON.stringify(m.include)}`);
+    if (m.layout) parts.push(`layout: ${Object.keys(m.layout).join(', ')}`);
     return parts.join(' · ');
 }

@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { Platform, PluginAssets } from './manifest';
-import { AssetMap, globsFor, InstallTarget } from './target';
+import { AssetMap, globsFor, InstallTarget, LayoutRoles, LayoutSpec } from './target';
 
 const SKIP_DIRS = /^(\.git|\.github|\.resources|node_modules|tests?|examples?|samples?|docs?|\.vscode|build|cmake|lib|libs|external|vendor|dependencies)$/i;
 const INCLUDE_DIR = /^(include|includes|inc)$/i;
@@ -61,6 +61,94 @@ export function detectIncludeDirs(root: string, explicit?: string | string[]): s
     return found;
 }
 
+const SERVER_DIRS: Record<'samp' | 'openmp', RegExp> = {
+    samp: /^(samp|sa-mp|sa_mp|legacy)$/i,
+    openmp: /^(open\.mp|openmp|open-mp|omp)$/i,
+};
+
+/**
+ * Archives that keep one folder per server ("samp/plugins/x.dll" + "open.mp/components/x.dll"): the
+ * folder for `server`, looked up in the first two levels. undefined = the archive is not split that way.
+ */
+export function serverFolder(root: string, server: 'samp' | 'openmp'): string | undefined {
+    const levels = [root];
+    try {
+        for (const e of fs.readdirSync(root, { withFileTypes: true })) if (e.isDirectory()) levels.push(path.join(root, e.name));
+    } catch {
+        return undefined;
+    }
+    for (const dir of levels) {
+        let subs: string[];
+        try {
+            subs = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+        } catch {
+            continue;
+        }
+        const mine = subs.find((n) => SERVER_DIRS[server].test(n));
+        const other = subs.find((n) => SERVER_DIRS[server === 'samp' ? 'openmp' : 'samp'].test(n));
+        if (mine) return path.join(dir, mine);
+        if (other) return undefined; // split per server, but nothing for this one
+    }
+    return undefined;
+}
+
+/** True when the archive has a folder for the other server only (nothing for `server`). */
+export function onlyOtherServerFolder(root: string, server: 'samp' | 'openmp'): boolean {
+    if (serverFolder(root, server)) return false;
+    return !!serverFolder(root, server === 'samp' ? 'openmp' : 'samp');
+}
+
+export interface LayoutResult extends BinaryLayout {
+    /** include folders (relative to the archive root) */
+    includes: string[];
+    /** declared paths that matched nothing in the archive */
+    missing: string[];
+}
+
+/**
+ * Applies a package's "layout": the files of each role for one server (plus "all"), from folders or
+ * patterns relative to the archive root. A single top folder in the archive (e.g. "name-1.0/") is
+ * looked through when the declared paths are not found at the root.
+ */
+export function applyLayout(root: string, files: string[], spec: LayoutSpec, server: 'samp' | 'openmp' | undefined, platform: Platform): LayoutResult {
+    const rel = (f: string) => path.relative(root, f).split(path.sep).join('/');
+    const list = (v: string | string[] | undefined) => (v === undefined ? [] : Array.isArray(v) ? v : [v]).map((p) => p.replace(/\\/g, '/').replace(/^\.?\/+|\/+$/g, ''));
+    const roles: LayoutRoles[] = [spec.all ?? {}, ...(server ? [spec[server] ?? {}] : [spec.samp ?? {}, spec.openmp ?? {}])];
+    const all = (k: keyof LayoutRoles) => roles.flatMap((r) => list(r[k]));
+    // the archive may wrap everything in one folder
+    let base = '';
+    const tops = [...new Set(files.map((f) => rel(f).split('/')[0]))];
+    const declared = [...all('plugins'), ...all('components'), ...all('libraries'), ...all('include')];
+    const found = (p: string, b: string) => files.some((f) => { const r = rel(f); const q = b ? b + '/' + p : p; return r === q || r.startsWith(q + '/') || (/[*?]/.test(p) && globToRegex(q).test(r)); });
+    if (tops.length === 1 && declared.length && !declared.some((p) => found(p, '')) && declared.some((p) => found(p, tops[0]))) base = tops[0];
+    const full = (p: string) => (base ? base + '/' + p : p);
+    const ext = platform === 'windows' ? /\.dll$/i : /\.so$/i;
+    const missing: string[] = [];
+    const pick = (k: 'plugins' | 'components' | 'libraries') => {
+        const out: string[] = [];
+        for (const p of all(k)) {
+            const q = full(p);
+            const hit = files.filter((f) => {
+                const r = rel(f);
+                return /[*?]/.test(p) ? globToRegex(q).test(r) : r === q || r.startsWith(q + '/');
+            });
+            if (!hit.length) missing.push(p);
+            out.push(...hit.filter((f) => ext.test(f)));
+        }
+        return [...new Set(out)];
+    };
+    const plugins = pick('plugins');
+    const components = pick('components');
+    const libraries = pick('libraries');
+    const includes: string[] = [];
+    for (const p of all('include')) {
+        const q = full(p);
+        if (files.some((f) => rel(f).startsWith(q + '/'))) includes.push(q);
+        else missing.push(p);
+    }
+    return { plugins, components, libraries, skipped: [], includes, missing };
+}
+
 /** Folders inside an extracted release asset that hold .inc files (any name). */
 export function includeDirsInAsset(root: string): string[] {
     const out: string[] = [];
@@ -84,6 +172,11 @@ const DYNAMIC = /(dyn(amic|ssl)?|shared)/i;
 function globToRegex(glob: string): RegExp {
     const esc = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
     return new RegExp(`^${esc}$`, 'i');
+}
+
+/** File name matches a pawn.json pattern (* and ? wildcards, case-insensitive). */
+export function globMatch(glob: string, name: string): boolean {
+    return globToRegex(glob).test(name);
 }
 
 export interface AssetLike {

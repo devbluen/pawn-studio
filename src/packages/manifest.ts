@@ -3,7 +3,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import type { AssetMap, IncludeSpec, TargetSpec } from './target';
+import type { AssetMap, IncludeSpec, LayoutSpec, TargetSpec } from './target';
 
 export type Platform = 'windows' | 'linux';
 
@@ -30,6 +30,8 @@ export interface PawnJson {
     plugins?: PluginAssets;
     /** Release assets with open.mp components, when they are separate files from "plugins". */
     components?: AssetMap;
+    /** Where each kind of file is inside the release archive, per server (instead of detection). */
+    layout?: LayoutSpec;
     // ── for projects ──
     /** Where packages are installed: server, os, arch, variant (default: detected). */
     target?: TargetSpec;

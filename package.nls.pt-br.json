@@ -95,5 +95,10 @@
   "command.tools.gangzone": "GangZone Creator (retângulo, círculo, polígono)",
   "view.console": "Pawn Studio",
   "command.console.clear": "Limpar o painel Pawn Studio",
-  "command.packages.check": "Conferir meu pacote (para autores: o que cada servidor e sistema recebe)"
+  "command.packages.check": "Conferir meu pacote (para autores: o que cada servidor e sistema recebe)",
+  "config.server.compileBeforeStart": "Compilar o gamemode ao iniciar o servidor (F6 / ▶)?",
+  "config.server.compileBeforeStart.ifChanged": "Só quando algum arquivo mudou depois da última compilação (padrão)",
+  "config.server.compileBeforeStart.always": "Sempre compilar",
+  "config.server.compileBeforeStart.ask": "Perguntar toda vez",
+  "config.server.compileBeforeStart.never": "Nunca (só quando ainda não existe o .amx)"
 }

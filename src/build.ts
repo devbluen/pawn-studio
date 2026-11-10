@@ -388,6 +388,41 @@ export class Builder {
         return result;
     }
 
+    /**
+     * Is the .amx of a target older than its sources? `changed` = the first file edited after the last
+     * build (or unsaved), "missing" when there is no .amx yet; undefined = up to date.
+     */
+    staleness(target: Target): { amx: string; builtAt?: Date; changed?: string } {
+        const amx = this.outputFor(target.entry);
+        let built: number;
+        try {
+            built = fs.statSync(amx).mtimeMs;
+        } catch {
+            return { amx, changed: 'missing' };
+        }
+        this.pawn.syncGraphIncludes(target.entry);
+        const files = [target.entry, ...this.pawn.graph.closure(target.entry).values()];
+        const dirty = new Set(vscode.workspace.textDocuments.filter((d) => d.isDirty).map((d) => d.uri.fsPath.toLowerCase()));
+        for (const f of files) {
+            if (dirty.has(f.toLowerCase())) return { amx, builtAt: new Date(built), changed: f };
+            try {
+                if (fs.statSync(f).mtimeMs > built + 1) return { amx, builtAt: new Date(built), changed: f };
+            } catch {
+                /* a missing include is pawncc's to report */
+            }
+        }
+        // pawn.json (compiler args, packages) or the settings file changed after the build
+        for (const f of ['pawn.json', 'pawn-lock.json']) {
+            const p = this.pawn.projectRoot() ? path.join(this.pawn.projectRoot()!, f) : undefined;
+            try {
+                if (p && fs.statSync(p).mtimeMs > built + 1) return { amx, builtAt: new Date(built), changed: p };
+            } catch {
+                /* not there */
+            }
+        }
+        return { amx, builtAt: new Date(built) };
+    }
+
     withProgress<T>(title: string, fn: () => Promise<T>): Thenable<T> {
         return vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title }, fn);
     }

@@ -257,6 +257,40 @@ export function activate(context: vscode.ExtensionContext): void {
                             if (!tgt) return undefined;
                             await b.setLastTarget(tgt.entry);
                             pawn.runtimeDiagnostics.clear();
+                            // compile only when needed: the .amx may be fresh from F5 a moment ago
+                            const mode = cfg().get<string>('server.compileBeforeStart', 'ifChanged');
+                            if (mode !== 'always') {
+                                const st = b.staleness(tgt);
+                                const amxName = path.basename(st.amx);
+                                const when = st.builtAt ? st.builtAt.toLocaleTimeString() : '';
+                                let compileNow = !!st.changed;
+                                if (mode === 'never') compileNow = st.changed === 'missing';
+                                if (mode === 'ask') {
+                                    type Pick = vscode.QuickPickItem & { compile: boolean };
+                                    const items: Pick[] = [
+                                        {
+                                            label: `$(play) ${t('Start with the current {0}', amxName)}`,
+                                            description: st.changed === 'missing' ? t('not compiled yet') : st.changed ? t('{0} changed after it', rel(st.changed)) : t('up to date, compiled at {0}', when),
+                                            compile: false,
+                                        },
+                                        { label: `$(tools) ${t('Compile and start')}`, compile: true },
+                                    ];
+                                    if (st.changed) items.reverse();
+                                    if (st.changed === 'missing') items.splice(items.findIndex((i) => !i.compile), 1);
+                                    const pick = await vscode.window.showQuickPick(items, { title: t('Start the server') });
+                                    if (!pick) return undefined;
+                                    compileNow = pick.compile;
+                                }
+                                if (!compileNow) {
+                                    return {
+                                        ok: true,
+                                        amx: st.amx,
+                                        message: st.changed
+                                            ? t('{0} started without compiling ({1} changed after it)', amxName, rel(st.changed))
+                                            : t('{0} is up to date (compiled at {1}): starting without compiling', amxName, when),
+                                    };
+                                }
+                            }
                             const res = await b.withProgress(`$(sync~spin) ${t('Compiling {0}…', path.basename(tgt.entry))}`, () => b.compile(tgt!, { quiet: true }));
                             if (!res) return undefined;
                             return {

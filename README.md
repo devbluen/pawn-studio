@@ -137,7 +137,7 @@ In the Pawn sidebar, open **Packages** and click `+`:
 
 ### When a package is installed
 
-- the code goes to `dependencies/`;
+- the code goes to `.pawn-studio/dependencies/`;
 - plugins, components and libraries go to the server, as described above;
 - plugins are registered in `server.cfg` (SA-MP) or `config.json` (open.mp);
 - the include folders go to the compiler and to IntelliSense, with no configuration;
@@ -152,7 +152,7 @@ The view shows each package in one of these states:
 - **`v2.9.4 → v2.9.6`**: a newer version fits the range in `pawn.json`. Updating it is safe.
 - **`v2.9.6 · v3.0.0 available`**: a new **major** version exists outside the range. Updating
   asks for confirmation, because it may break your code, and then changes `pawn.json` to `^3.0.0`.
-- **not installed**: the package is in `pawn.json` but missing from `dependencies/`.
+- **not installed**: the package is in `pawn.json` but missing from `.pawn-studio/dependencies/`.
 
 ### Lock file and removal
 
@@ -261,69 +261,103 @@ as `41.4`. Pre-releases (`-beta`, `-rc1`) are only installed when the version yo
 
 - ✅ `pawn.json` and `pawn-lock.json`: anyone who clones the project gets the same versions with
   *Install pawn.json dependencies*.
-- ❌ `dependencies/`: it is downloaded again. Add it to `.gitignore`.
+- ❌ `.pawn-studio/`: the downloaded packages. It is downloaded again from the lock, and it has its own
+  `.gitignore`, so git skips it without you doing anything. (Projects from versions before 1.4 had a
+  `dependencies/` folder: the packages move to `.pawn-studio/dependencies/` on their own.)
 
 ### Publishing your own package
 
-**An include** usually needs nothing: push the repository and create version tags (`v1.0.0`). The
-extension finds the `.inc` files on its own. Add the **`pawn-package`** topic to the repository so it
-shows up in the search.
+Find your case below, copy its `pawn.json` to the root of your repository and name the release files
+the same way. Then:
 
-**A plugin or component** goes in a GitHub **release**, and a `pawn.json` in the repository says who
-the package is for and which release file each server and system gets. The `pawn.json` must be in the
-**tag** you release: installers read the one inside the tag, not the one on your main branch.
+1. commit the `pawn.json` **before** creating the tag: installers read the `pawn.json` inside the tag
+   (`v1.0.0`), not the one on your main branch;
+2. create the GitHub release for that tag and attach the files;
+3. run **Pawn: Check my package** (Packages view → ⋯): it lists what SA-MP and open.mp get on each
+   system, and warns about anything missing;
+4. add the **`pawn-package`** topic to the repository, so it shows up in the search.
 
-Run **Pawn: Check my package** (Packages view → ⋯) in your repository before announcing a release: it
-reads your `pawn.json` and the latest release and shows, for SA-MP and open.mp on each system, which
-file is downloaded and what goes where.
-
-#### 1. Which servers: `supports`
-
-| Value | Meaning |
+| Your package | Case |
 |---|---|
-| `["samp", "openmp"]` (default) | works on both |
-| `"samp"` | a SA-MP plugin. open.mp also runs it, as a legacy plugin (`pawn.legacy_plugins` in `config.json`) |
-| `"openmp"` | an open.mp component only. It is **not** installed on SA-MP servers |
+| only `.inc` files | [A](#a-include-only) |
+| a SA-MP plugin (open.mp also loads it) | [B](#b-sa-mp-plugin) |
+| an open.mp component only | [C](#c-openmp-component-only) |
+| a plugin **and** a component, in the same file | [D](#d-plugin-and-component-in-the-same-file) |
+| a plugin **and** a component, in separate files | [E](#e-plugin-and-component-in-separate-files) |
+| one folder per server inside the archive (`samp/…`, `open.mp/…`) | [D2](#d2-one-folder-per-server-inside-the-archive) |
+| any other organization inside the archive | [G](#g-declare-where-each-file-is-layout) |
+| builds for several systems / 64-bit / dynamic | [F](#f-several-systems-architectures-and-variants) |
 
-#### 2. Which files: `plugins` and `components`
+#### A. Include only
 
-Both map a **target key** to the name of a release file (`*` = anything, e.g. the version):
+No `pawn.json` and no release needed: push the repository and create version tags. The `.inc` files are
+found on their own (an `include/` folder, or the repository root). Add a `pawn.json` only to list
+dependencies:
 
-| Key | Used for |
+```json
+{ "dependencies": { "pawn-lang/samp-stdlib": "latest" } }
+```
+
+#### B. SA-MP plugin
+
+Release files:
+
+```text
+myplugin-1.0.0-win32.zip          myplugin-1.0.0-linux.tar.gz
+├─ plugins/myplugin.dll           ├─ plugins/myplugin.so
+└─ include/myplugin.inc           └─ include/myplugin.inc
+```
+
+```json
+{
+	"supports": "samp",
+	"plugins": {
+		"windows": "myplugin-*-win32.zip",
+		"linux": "myplugin-*-linux.tar.gz"
+	}
+}
+```
+
+| Server | Gets |
 |---|---|
-| `windows`, `linux` | the 32-bit build (what SA-MP and open.mp load) |
-| `windows-x64`, `linux-x64` | 64-bit builds |
-| `linux-dynamic`, `linux-static`, `linux-x86-dynamic`… | build variants (e.g. dynamic/static SSL) |
+| SA-MP | `plugins/myplugin.dll` + `plugins myplugin` in `server.cfg` |
+| open.mp | the same file as a legacy plugin, in `pawn.legacy_plugins` of `config.json` |
 
-- `plugins`: the file(s) with the binaries. For SA-MP it holds the plugin; it may also hold the open.mp
-  component (see layout below). `false` = the package has no binaries.
-- `components`: only when the open.mp component is a **different file**. open.mp servers download this
-  file instead of the `plugins` one.
-- A value can be a list of patterns; the first one found in the release wins.
-- Without `plugins`/`components`, the file is chosen by its name (`win`/`linux`, `x64`, `dynssl`…).
+#### C. open.mp component only
 
-#### 3. What goes inside the release file
+```text
+mycomponent-1.0.0-win32.zip       mycomponent-1.0.0-linux.tar.gz
+├─ components/mycomponent.dll     ├─ components/mycomponent.so
+└─ include/mycomponent.inc        └─ include/mycomponent.inc
+```
 
-| Path inside the zip / tar.gz | Installed to | Server |
-|---|---|---|
-| `plugins/name.dll` / `plugins/name.so` | `plugins/`, and added to `server.cfg` or `config.json` | SA-MP, or open.mp as legacy plugin |
-| `components/name.dll` / `components/name.so` | `components/` | open.mp (skipped on SA-MP) |
-| any other `.dll`/`.so` | next to the server executable (runtime libraries) | both |
-| folders with `.inc` | added to the include path, before the repository source | both |
-| loose `.dll`/`.so` at the root | a plugin; a component when `supports` is `"openmp"` | — |
+```json
+{
+	"supports": "openmp",
+	"plugins": {
+		"windows": "mycomponent-*-win32.zip",
+		"linux": "mycomponent-*-linux.tar.gz"
+	}
+}
+```
 
-When the same library is in `plugins/` **and** `components/`, SA-MP gets the plugin and open.mp the
-component, never both. When the release has the `.inc` files, the repository source (SDKs, C++ code)
-is not kept in the user's `dependencies/`.
+| Server | Gets |
+|---|---|
+| open.mp | `components/mycomponent.dll` (components load on their own, no config) |
+| SA-MP | nothing: the install log says the package is for open.mp only |
 
-#### 4. Includes: `include`
+With `"supports": "openmp"`, loose `.dll`/`.so` files at the root of the archive also count as components.
 
-`"include": "include"` (folder or list of folders). When each server has its own include:
-`"include": { "samp": "include/samp", "openmp": "include/omp" }` (`"all"` = for both).
+#### D. Plugin and component in the same file
 
-#### Examples
+One file per system, with both builds inside:
 
-One file per system with both versions inside (`plugins/` + `components/`):
+```text
+audio-cast-1.0.3-windows-x86.zip
+├─ plugins/audio-cast.dll         ← SA-MP
+├─ components/audio-cast.dll      ← open.mp
+└─ include/audio-cast.inc
+```
 
 ```json
 {
@@ -335,50 +369,154 @@ One file per system with both versions inside (`plugins/` + `components/`):
 }
 ```
 
-The open.mp component as separate files:
+| Server | Gets |
+|---|---|
+| SA-MP | `plugins/audio-cast.dll` + `server.cfg` (the component is skipped) |
+| open.mp | `components/audio-cast.dll` (the plugin is skipped, so it never loads twice) |
+
+#### D2. One folder per server inside the archive
+
+Each server's files in a folder of its own, as they would be laid out in that server:
+
+```text
+PawnJson-1.0.0-windows-x86.zip
+├─ samp/
+│  ├─ plugins/PawnJson.dll
+│  └─ pawno/include/PawnJson.inc
+└─ open.mp/
+   ├─ components/PawnJson.dll
+   └─ qawno/include/PawnJson.inc
+```
 
 ```json
 {
 	"supports": ["samp", "openmp"],
-	"plugins": { "windows": "myplugin-*-win32.zip", "linux": "myplugin-*-linux.tar.gz" },
+	"plugins": {
+		"windows": "PawnJson-*-windows-x86.zip",
+		"linux": "PawnJson-*-linux-x86.zip"
+	}
+}
+```
+
+SA-MP uses only the `samp/` folder (plugin, `server.cfg` and its include); open.mp uses only `open.mp/`
+(component and its include). Folder names recognized: `samp`, `sa-mp`, `legacy` and `open.mp`,
+`openmp`, `omp`, at the root of the archive or one level down. With other folder names, declare them
+with [`layout`](#g-declare-where-each-file-is-layout).
+
+#### G. Declare where each file is: `layout`
+
+When the archive is organized your own way, say where each kind of file is, per server. Paths are
+relative to the archive root (a single top folder such as `mylib-1.0/` is looked through):
+
+```text
+mylib-1.0.0-win32.zip
+└─ mylib-1.0.0/
+   ├─ bin/legacy/mylib.dll
+   ├─ bin/omp/mylib.dll
+   ├─ inc/samp/mylib.inc
+   ├─ inc/omp/mylib.inc
+   └─ libs/libcurl.dll
+```
+
+```json
+{
+	"supports": ["samp", "openmp"],
+	"plugins": { "windows": "mylib-*-win32.zip", "linux": "mylib-*-linux.tar.gz" },
+	"layout": {
+		"samp":   { "plugins": "bin/legacy", "include": "inc/samp" },
+		"openmp": { "components": "bin/omp/mylib.dll", "include": "inc/omp" },
+		"all":    { "libraries": "libs/*.dll" }
+	}
+}
+```
+
+| Role | Goes to |
+|---|---|
+| `plugins` | `plugins/` of the server, added to `server.cfg` / `config.json` |
+| `components` | `components/` |
+| `libraries` | next to the server executable |
+| `include` | the include path |
+
+- Each value is a folder (`"bin/legacy"`), a pattern (`"bin/omp/*.dll"`) or a list of them.
+- `samp` is used on SA-MP servers, `openmp` on open.mp servers, `all` on both.
+- Only the `.dll` (Windows) or `.so` (Linux) of the system being installed are taken from those folders.
+- With `layout`, **only what it lists is installed**: no detection. A path that is not in the archive is
+  reported in the install log and by **Pawn: Check my package**.
+
+#### E. Plugin and component in separate files
+
+```text
+myplugin-1.0.0-win32.zip          myplugin-omp-1.0.0-win32.zip
+└─ plugins/myplugin.dll           └─ components/myplugin.dll
+```
+
+```json
+{
+	"supports": ["samp", "openmp"],
+	"plugins":    { "windows": "myplugin-*-win32.zip",     "linux": "myplugin-*-linux.tar.gz" },
 	"components": { "windows": "myplugin-omp-*-win32.zip", "linux": "myplugin-omp-*-linux.tar.gz" }
 }
 ```
 
-Several systems, architectures and variants:
+SA-MP downloads only the `plugins` file; open.mp downloads only the `components` file. A file that a
+`components` pattern matches is never used as the plugin, even when the `plugins` pattern matches it too.
+
+#### F. Several systems, architectures and variants
+
+Add one key per build. The plain `windows` / `linux` keys are the 32-bit builds, which is what SA-MP
+and open.mp load:
 
 ```json
 {
 	"plugins": {
-		"windows": "mylib-*-win32.zip",
-		"windows-x64": "mylib-*-win64.zip",
-		"linux": "mylib-*-linux-static.tar.gz",
+		"windows":       "mylib-*-win32.zip",
+		"windows-x64":   "mylib-*-win64.zip",
+		"linux":         "mylib-*-linux-static.tar.gz",
 		"linux-dynamic": "mylib-*-linux-dynssl.tar.gz"
 	}
 }
 ```
 
-open.mp only:
+The project that installs the package chooses the build with `"target"` in its own `pawn.json` (see
+[Project settings](#project-settings-target-and-compiler)): `{ "os": "linux", "variant": "dynamic" }`.
+A variant the package does not have falls back to the plain key of that system.
 
-```json
-{
-	"supports": "openmp",
-	"plugins": { "windows": "my-component-*-windows.zip", "linux": "my-component-*-linux.tar.gz" },
-	"dependencies": { "openmultiplayer/omp-stdlib": "latest" }
-}
-```
+#### Reference
 
-`dependencies` lists what your package needs; it is installed together with it.
+| Field | Values |
+|---|---|
+| `supports` | `"samp"`, `"openmp"` or `["samp", "openmp"]` (default) |
+| `plugins` | `{ key: "file pattern" }` — the file with the binaries (`*` = anything); `false` = no binaries; left out = chosen by the file names |
+| `components` | same format; only when the open.mp component is a separate file |
+| `include` | `"include"`, `["a", "b"]` or `{ "samp": "...", "openmp": "...", "all": "..." }`; left out = detected |
+| `layout` | where each kind of file is inside the archive, per server — see [G](#g-declare-where-each-file-is-layout) |
+| `dependencies` | packages yours needs, installed together with it |
+
+Keys of `plugins` / `components`: `windows`, `linux`, `windows-x64`, `linux-x64`, and variants such as
+`linux-dynamic`, `linux-static` or `linux-x86-dynamic`. A value can also be a list of patterns.
+
+Inside the release file:
+
+| Path | Goes to |
+|---|---|
+| `plugins/*.dll` / `plugins/*.so` | `plugins/` of the server, added to `server.cfg` / `config.json` |
+| `components/*.dll` / `components/*.so` | `components/` (open.mp only) |
+| other `.dll` / `.so` (with a `plugins/` folder present) | next to the server executable (runtime libraries such as `libmariadb.dll`) |
+| folders with `.inc` files | the include path, before the repository source |
+| `samp/…` and `open.mp/…` (one folder per server) | only the folder of the project's server is used |
+
+When the release brings the `.inc` files, the repository source (SDKs, C++ code) is not kept in the
+installer's `.pawn-studio/dependencies/` folder.
 
 ### Project settings: `target` and `compiler`
 
-The project's own `pawn.json` (in the server folder) can also hold settings that belong to the project,
+The `pawn.json` of your project (in the server folder) can hold settings that belong to the project,
 so everyone who opens it gets the same:
 
 ```json
 {
 	"entry": "gamemodes/main.pwn",
-	"target": { "os": "linux", "variant": "dynamic" },
+	"target": { "os": ["windows", "linux"] },
 	"compiler": {
 		"path": "pawno/pawncc.exe",
 		"args": ["-d3", "-;+", "-(+"],
@@ -387,11 +525,21 @@ so everyone who opens it gets the same:
 }
 ```
 
-- `target`: which builds packages install. `server` (`samp`/`openmp`, default: the server found in the
-  folder), `os` (default: this machine, e.g. `linux` when you deploy to a Linux host), `arch` (default
-  `x86`) and `variant` (`static`, `dynamic`… when a package offers several).
-- `compiler`: `path` of pawncc, `args` and extra `includes` (paths relative to `pawn.json`). They win
-  over the `pawnStudio.compilerPath`, `pawnStudio.args` and `pawnStudio.includePaths` settings.
+**`target`** — which builds packages install:
+
+| Key | Default | Example |
+|---|---|---|
+| `os` | the system of the server in the folder (or this machine) | `["windows", "linux"]`: test on Windows, host on Linux — both the `.dll` and the `.so` go to `plugins/` |
+| `server` | detected from `samp-server` / `omp-server` | `"openmp"` |
+| `arch` | `"x86"` (what SA-MP and open.mp load) | `"x64"` |
+| `variant` | the default build | `"dynamic"`, `"static"` |
+
+With several systems, the config file (`server.cfg` / `config.json`) is written for the server in
+the folder. A SA-MP server on Linux needs the `.so` in the name (`plugins streamer.so`): the install log
+shows that line for the other system.
+
+**`compiler`** — `path` of pawncc, `args` and extra `includes` (paths relative to `pawn.json`). They win
+over the `pawnStudio.compilerPath`, `pawnStudio.args` and `pawnStudio.includePaths` settings.
 
 ---
 

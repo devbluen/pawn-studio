@@ -2,7 +2,7 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.2.0",
+  "version": "1.6.0",
   "publisher": "devbluen",
   "license": "MIT",
   "repository": {
@@ -744,8 +744,25 @@
           },
           "pawnStudio.entryExclude": {
             "type": "string",
-            "default": "**/{node_modules,dependencies,.git,pawno,qawno}/**",
+            "default": "**/{node_modules,dependencies,.pawn-studio,.git,pawno,qawno}/**",
             "markdownDescription": "%config.entryExclude%"
+          },
+          "pawnStudio.server.compileBeforeStart": {
+            "type": "string",
+            "enum": [
+              "ifChanged",
+              "always",
+              "ask",
+              "never"
+            ],
+            "default": "ifChanged",
+            "markdownDescription": "%config.server.compileBeforeStart%",
+            "enumDescriptions": [
+              "%config.server.compileBeforeStart.ifChanged%",
+              "%config.server.compileBeforeStart.always%",
+              "%config.server.compileBeforeStart.ask%",
+              "%config.server.compileBeforeStart.never%"
+            ]
           }
         }
       },

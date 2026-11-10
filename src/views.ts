@@ -348,22 +348,68 @@ export class ServerView extends Provider {
         const lock = this.pawn.packages()?.lock();
         const owner = (name: string) =>
             Object.values(lock?.packages ?? {}).find((e) => e.plugins.some((p) => p.toLowerCase().replace(/\.(dll|so)$/, '') === name.toLowerCase().replace(/\.(dll|so)$/, '')));
+        // files on disk that the server config does not load, and which package put each file there
+        const ownerOfFile = (relFile: string) => Object.values(lock?.packages ?? {}).find((e) => e.files.some((x) => x.toLowerCase() === relFile.toLowerCase()));
+        const list = (dir: string) => {
+            try {
+                return fs.readdirSync(dir).filter((x) => /\.(dll|so)$/i.test(x));
+            } catch {
+                return [];
+            }
+        };
+        const localExt = server.executable && !/\.exe$/i.test(server.executable) ? '.so' : process.platform === 'win32' ? '.dll' : '.so';
+        const otherSystem = (file: string) => (path.extname(file).toLowerCase() === localExt ? '' : path.extname(file).toLowerCase() === '.so' ? 'Linux' : 'Windows');
+        const norm = (x: string) => x.toLowerCase().replace(/\.(dll|so)$/, '');
+        const loose = list(pluginsDir).filter((file) => !otherSystem(file) && !plugins.some((p) => norm(p) === norm(file)));
         nodes.push(
             item(t('Plugins ({0})', plugins.length), {
                 iconPath: icon('plug'),
+                tooltip: server.kind === 'openmp' ? t('Legacy plugins: pawn.legacy_plugins in config.json, files in plugins/') : t('The plugins line of server.cfg, files in plugins/'),
                 collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
-                children: () =>
-                    plugins.map((p) => {
+                children: () => [
+                    ...plugins.map((p) => {
                         const base = p.replace(/\.(dll|so)$/i, '');
                         const exists = ['.dll', '.so', ''].some((ext) => fs.existsSync(path.join(pluginsDir, base + ext)));
                         const pkg = owner(p);
                         return item(p, {
                             description: !exists ? t('file not found in plugins/') : pkg ? `${pkg.owner}/${pkg.repo}` : t('manual'),
                             iconPath: exists ? icon('plug') : icon('warning', 'problemsWarningIcon.foreground'),
+                            command: exists ? openAt(server.configFile) : undefined,
                         });
                     }),
+                    ...loose.map((file) =>
+                        item(file, {
+                            description: t('in plugins/, not loaded by {0}', path.basename(server.configFile)),
+                            iconPath: icon('circle-slash', 'problemsWarningIcon.foreground'),
+                            command: openAt(server.configFile),
+                        }),
+                    ),
+                ],
             }),
         );
+        const componentsDir = path.join(server.dir, 'components');
+        const components = list(componentsDir);
+        if (components.length || server.kind === 'openmp') {
+            const mine = components.filter((c) => !otherSystem(c));
+            nodes.push(
+                item(t('Components ({0})', mine.length), {
+                    iconPath: icon('extensions'),
+                    tooltip: t('open.mp components: every file in components/ is loaded, no config needed'),
+                    description: server.kind === 'samp' && components.length ? t('SA-MP does not load components') : undefined,
+                    collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                    children: () =>
+                        components.map((c) => {
+                            const pkg = ownerOfFile(rel(path.join(componentsDir, c)));
+                            const sys = otherSystem(c);
+                            return item(c, {
+                                description: [sys && t('for {0}', sys), pkg ? `${pkg.owner}/${pkg.repo}` : t('manual')].filter(Boolean).join(' · '),
+                                iconPath: sys ? icon('cloud') : icon('extensions'),
+                                resourceUri: vscode.Uri.file(path.join(componentsDir, c)),
+                            });
+                        }),
+                }),
+            );
+        }
 
         if (this.runtimeErrors.length) {
             nodes.push(
