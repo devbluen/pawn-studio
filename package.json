@@ -2,7 +2,7 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.5.2",
+  "version": "0.9.0",
   "publisher": "devbluen",
   "license": "MIT",
   "engines": {
@@ -24,7 +24,14 @@
     "pawncc",
     "gamemode",
     "package manager",
-    "crashdetect"
+    "crashdetect",
+    "textdraw",
+    "dialog",
+    "attached object",
+    "SetPlayerAttachedObject",
+    "gangzone",
+    "GangZoneCreate",
+    "streamer"
   ],
   "main": "./out/extension.js",
   "activationEvents": [
@@ -197,6 +204,60 @@
         "title": "%command.server.openConfig%",
         "category": "Pawn",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "pawnStudio.tools.objects",
+        "title": "%command.tools.objects%",
+        "category": "Pawn",
+        "icon": "$(symbol-class)"
+      },
+      {
+        "command": "pawnStudio.tools.sprites",
+        "title": "%command.tools.sprites%",
+        "category": "Pawn",
+        "icon": "$(file-media)"
+      },
+      {
+        "command": "pawnStudio.tools.animations",
+        "title": "%command.tools.animations%",
+        "category": "Pawn",
+        "icon": "$(person)"
+      },
+      {
+        "command": "pawnStudio.tools.sounds",
+        "title": "%command.tools.sounds%",
+        "category": "Pawn",
+        "icon": "$(unmute)"
+      },
+      {
+        "command": "pawnStudio.tools.attach",
+        "title": "%command.tools.attach%",
+        "category": "Pawn",
+        "icon": "$(person-add)"
+      },
+      {
+        "command": "pawnStudio.tools.dialog",
+        "title": "%command.tools.dialog%",
+        "category": "Pawn",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "pawnStudio.tools.gangzone",
+        "title": "%command.tools.gangzone%",
+        "category": "Pawn",
+        "icon": "$(map)"
+      },
+      {
+        "command": "pawnStudio.tools.selectGta",
+        "title": "%command.tools.selectGta%",
+        "category": "Pawn",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "pawnStudio.tools.open",
+        "title": "%command.tools.open%",
+        "category": "Pawn",
+        "icon": "$(tools)"
       }
     ],
     "keybindings": [
@@ -239,6 +300,10 @@
         {
           "id": "pawnStudio.server",
           "name": "%view.server%"
+        },
+        {
+          "id": "pawnStudio.tools",
+          "name": "%view.tools%"
         }
       ]
     },
@@ -282,6 +347,21 @@
           "command": "pawnStudio.selectTarget",
           "when": "resourceExtname == .pwn || resourceExtname == .inc",
           "group": "pawn@3"
+        },
+        {
+          "command": "pawnStudio.tools.dialog",
+          "when": "editorLangId == pawn",
+          "group": "pawn@9"
+        },
+        {
+          "command": "pawnStudio.tools.gangzone",
+          "when": "editorLangId == pawn",
+          "group": "pawn@9"
+        },
+        {
+          "command": "pawnStudio.tools.attach",
+          "when": "editorLangId == pawn",
+          "group": "pawn@9"
         }
       ],
       "view/title": [
@@ -354,6 +434,21 @@
           "command": "pawnStudio.server.startNoCompile",
           "when": "view == pawnStudio.server",
           "group": "1_more"
+        },
+        {
+          "command": "pawnStudio.tools.open",
+          "when": "view == pawnStudio.compile",
+          "group": "navigation@99"
+        },
+        {
+          "command": "pawnStudio.tools.open",
+          "when": "view == pawnStudio.packages",
+          "group": "navigation@99"
+        },
+        {
+          "command": "pawnStudio.tools.open",
+          "when": "view == pawnStudio.server",
+          "group": "navigation@99"
         }
       ],
       "view/item/context": [
@@ -685,13 +780,38 @@
             ]
           }
         }
+      },
+      {
+        "title": "%config.section.tools%",
+        "properties": {
+          "pawnStudio.gtaPath": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%config.gtaPath%"
+          },
+          "pawnStudio.dialogs.codeStyle": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "native",
+              "easy"
+            ],
+            "enumDescriptions": [
+              "%config.dialogs.codeStyle.auto%",
+              "%config.dialogs.codeStyle.native%",
+              "%config.dialogs.codeStyle.easy%"
+            ],
+            "default": "auto",
+            "markdownDescription": "%config.dialogs.codeStyle%"
+          }
+        }
       }
     ]
   },
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "tsc -p ./ && node test/run.js && node test/grammar.js && node test/i18n.js",
+    "test": "tsc -p ./ && node test/run.js && node test/grammar.js && node test/i18n.js && node test/gta.js",
     "test:live": "tsc -p ./ && node test/live.js",
     "package": "vsce package --allow-missing-repository --no-rewrite-relative-links",
     "test:vscode": "tsc -p ./ && node test/vscode/runTest.js"
@@ -701,6 +821,7 @@
     "@types/vscode": "^1.80.0",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^2.24.0",
+    "three": "^0.170.0",
     "typescript": "^5.4.0",
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.3.2"

@@ -476,4 +476,238 @@ t('quick analysis: static function from another file does not count', () => {
 t('quick analysis: without #pragma semicolon, ; is not required', () => {
   assert.deepStrictEqual(codes(lint('main()\n{\n    SetPlayerPos(0, 1.0, 2.0, 3.0)\n}', { semicolon: false })), []);
 });
+// ───────────────────────── GTA formats (synthetic data) ─────────────────────────
+const zlib = require('zlib');
+const { encodePng } = require('../out/gta/png');
+const { readTextures, listTextures } = require('../out/gta/txd');
+const { parseIde } = require('../out/gta/ide');
+const { parseIfp } = require('../out/gta/ifp');
+const { ImgArchive } = require('../out/gta/img');
+const { parseDialogCall, splitArgs } = require('../out/assets/dialogParse');
+
+const rwChunk = (type, payload) => {
+  const h = Buffer.alloc(12);
+  h.writeUInt32LE(type, 0); h.writeUInt32LE(payload.length, 4); h.writeUInt32LE(0x1803ffff, 8);
+  return Buffer.concat([h, payload]);
+};
+function textureNative(name, raster, d3d, w, h, flags, data) {
+  const s = Buffer.alloc(88 + 4 + data.length);
+  s.writeUInt32LE(9, 0); // platform D3D9
+  s.write(name, 8, 'latin1');
+  s.writeUInt32LE(raster, 72); s.writeUInt32LE(d3d, 76);
+  s.writeUInt16LE(w, 80); s.writeUInt16LE(h, 82); s[84] = 32; s[85] = 1; s[86] = 4; s[87] = flags;
+  s.writeUInt32LE(data.length, 88); data.copy(s, 92);
+  return rwChunk(0x15, Buffer.concat([rwChunk(1, s), rwChunk(3, Buffer.alloc(0))]));
+}
+t('PNG encoder', () => {
+  const rgba = Buffer.from([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 128, 1, 2, 3, 4]);
+  const png = encodePng(2, 2, rgba);
+  assert.strictEqual(png.toString('latin1', 1, 4), 'PNG');
+  assert.strictEqual(png.readUInt32BE(16), 2); // width
+  const idat = png.indexOf('IDAT');
+  const raw = zlib.inflateSync(png.subarray(idat + 4, idat + 4 + png.readUInt32BE(idat - 4)));
+  assert.deepStrictEqual([...raw.subarray(1, 9)], [255, 0, 0, 255, 0, 255, 0, 255]);
+});
+t('TXD: 8888 and DXT1 textures', () => {
+  // 2x2 A8R8G8B8 stored as B,G,R,A
+  const argb = Buffer.from([0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 255, 255, 255, 0]);
+  // one DXT1 block: c0 = red (0xF800), c1 = blue (0x001F), all pixels index 0 except the first row = 1
+  const dxt = Buffer.alloc(8); dxt.writeUInt16LE(0xf800, 0); dxt.writeUInt16LE(0x001f, 2); dxt.writeUInt32LE(0x00000055, 4);
+  const dict = rwChunk(0x16, Buffer.concat([
+    rwChunk(1, Buffer.from([2, 0, 0, 0])),
+    textureNative('argb', 0x0500, 21, 2, 2, 1, argb),
+    textureNative('block', 0x0200, 0x31545844, 4, 4, 0, dxt),
+  ]));
+  assert.deepStrictEqual(listTextures(dict).map((x) => `${x.name} ${x.width}x${x.height} ${x.format}`), ['argb 2x2 8888', 'block 4x4 DXT1']);
+  const [a, b] = readTextures(dict);
+  assert.deepStrictEqual([...a.rgba.subarray(0, 8)], [255, 0, 0, 255, 0, 255, 0, 255]);
+  assert.strictEqual(a.rgba[15], 0, 'alpha kept');
+  assert.deepStrictEqual([...b.rgba.subarray(0, 4)], [0, 0, 255, 255], 'first row = color 1 (blue)');
+  assert.deepStrictEqual([...b.rgba.subarray(16, 20)], [255, 0, 0, 255], 'second row = color 0 (red)');
+});
+t('IDE: objects, timed objects and weapons', () => {
+  const defs = parseIde('# comment\nobjs\n1337, BinNt07_LA, LABins01_LA, 100, 0\n615, veg_tree3, gta_tree_boak, 1, 299, 0\nend\ntobj\n4212, lanitewin1, nitewin, 700, 12, 20, 6\nend\npeds\n7, male01, male01, CIVMALE\nend\nweap\n355, ak47, ak47, colt45, 1, 80, 0\nend\n', 'LA', 'gta');
+  assert.deepStrictEqual(defs.map((d) => `${d.id}:${d.model}:${d.txd}:${d.section}:${d.drawDist}`), ['1337:BinNt07_LA:LABins01_LA:objs:100', '615:veg_tree3:gta_tree_boak:objs:299', '4212:lanitewin1:nitewin:tobj:700', '355:ak47:ak47:weap:1']);
+});
+t('IFP (ANP3): names, compressed keyframes, root translation', () => {
+  const parts = [];
+  const head = Buffer.alloc(36); head.write('ANP3', 0, 'latin1'); head.write('ped', 8, 'latin1'); head.writeUInt32LE(1, 32);
+  const anim = Buffer.alloc(36); anim.write('WALK_test', 0, 'latin1'); anim.writeUInt32LE(1, 24); anim.writeUInt32LE(32, 28); anim.writeUInt32LE(1, 32);
+  const bone = Buffer.alloc(36); bone.write('Root', 0, 'latin1'); bone.writeUInt32LE(4, 24); bone.writeUInt32LE(2, 28); bone.writeInt32LE(0, 32);
+  const frames = Buffer.alloc(32);
+  frames.writeInt16LE(4096, 6); frames.writeInt16LE(0, 8); // identity, t=0
+  frames.writeInt16LE(2896, 16 + 4); frames.writeInt16LE(2896, 16 + 6); frames.writeInt16LE(60, 16 + 8); frames.writeInt16LE(1024, 16 + 10); // 90° Z, t=1s, x=1
+  parts.push(head, anim, bone, frames);
+  const pkg = parseIfp(Buffer.concat(parts));
+  assert.strictEqual(pkg.name, 'ped');
+  const a = pkg.animations[0];
+  assert.strictEqual(a.name, 'WALK_test');
+  assert.strictEqual(a.duration, 1);
+  assert.deepStrictEqual(a.bones[0].frames[1].pos, [1, 0, 0]);
+  assert.ok(Math.abs(Math.hypot(...a.bones[0].frames[1].rot) - 1) < 0.01);
+  assert.strictEqual(parseIfp(Buffer.concat(parts), false).animations[0].bones[0].frames.length, 0, 'names-only mode');
+});
+t('IMG v2 archive', () => {
+  const os = require('os');
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pawn-img-')), 'x.img');
+  const dir = Buffer.alloc(8 + 32);
+  dir.write('VER2', 0, 'latin1'); dir.writeUInt32LE(1, 4);
+  dir.writeUInt32LE(1, 8); dir.writeUInt16LE(1, 12); dir.write('hello.dff', 16, 'latin1');
+  const body = Buffer.alloc(2048); body.write('payload', 0);
+  fs.writeFileSync(f, Buffer.concat([dir, Buffer.alloc(2048 - dir.length), body]));
+  const img = ImgArchive.open(f);
+  assert.ok(img.has('HELLO.DFF'));
+  assert.strictEqual(img.read('hello.dff').toString('latin1', 0, 7), 'payload');
+});
+t('Dialog Creator reads existing calls', () => {
+  assert.deepStrictEqual(splitArgs('a, "x, (y)", f(b, c), d) + 1'), ['a', '"x, (y)"', 'f(b, c)', 'd']);
+  const d = parseDialogCall('ShowPlayerDialog(playerid, DIALOG_LOGIN, DIALOG_STYLE_PASSWORD, "{FFFFFF}Login", "Password:\\nAccount: %s", "Enter", "Quit");');
+  assert.deepStrictEqual(d, { name: 'DIALOG_LOGIN', style: 'DIALOG_STYLE_PASSWORD', caption: '{FFFFFF}Login', body: 'Password:\nAccount: %s', button1: 'Enter', button2: 'Quit', codeStyle: 'native' });
+  assert.strictEqual(parseDialogCall('Dialog_Show(playerid, Menu, DIALOG_STYLE_LIST, "M", "A\\tB", "OK", "");').codeStyle, 'easy');
+  assert.strictEqual(parseDialogCall('ShowPlayerDialog(playerid, 1, DIALOG_STYLE_MSGBOX, "x", str, "ok", "")').body, undefined, 'variables are not prefilled');
+  assert.strictEqual(parseDialogCall('SendClientMessage(playerid, -1, "x");'), undefined);
+});
+
+const { parseTextIpl, parseBinaryIpl } = require('../out/gta/ipl');
+t('IPL placements: text inst + binary stream', () => {
+  const txt = parseTextIpl('# map\ninst\n1337, BinNt07_LA, 0, 10.5, -20, 3, 0, 0, 0, 1, -1\n700, tree, 13, 1, 2, 3, 0, 0, 0.7071, 0.7071, 0\nend\ncull\n1, 2, 3\nend\n');
+  assert.strictEqual(txt.length, 2);
+  assert.deepStrictEqual([txt[0].id, txt[0].x, txt[0].y, txt[0].interior], [1337, 10.5, -20, 0]);
+  const lods = [];
+  parseTextIpl('inst\n1, a, 0, 0, 0, 0, 0, 0, 0, 1, 1\n2, lod, 0, 0, 0, 0, 0, 0, 0, 1, -1\nend\n', [], (i) => lods.push(i));
+  assert.deepStrictEqual(lods, [1]);
+  const b = Buffer.alloc(76 + 40);
+  b.write('bnry', 0, 'latin1'); b.writeInt32LE(1, 4); b.writeInt32LE(76, 28);
+  [100.25, 200.5, 10].forEach((v, i) => b.writeFloatLE(v, 76 + i * 4));
+  b.writeFloatLE(1, 76 + 24); b.writeInt32LE(3095, 76 + 28); b.writeInt32LE(256 | 3, 76 + 32); b.writeInt32LE(7, 76 + 36);
+  const got = [];
+  const bin = parseBinaryIpl(b, [], (i) => got.push(i));
+  assert.deepStrictEqual([bin[0].id, bin[0].x, bin[0].y, bin[0].interior], [3095, 100.25, 200.5, 3], 'interior keeps the low byte');
+  assert.deepStrictEqual(got, [7]);
+  assert.strictEqual(parseBinaryIpl(Buffer.from('nope')).length, 0);
+});
+const { SfxBanks, encodeWav } = require('../out/gta/sfx');
+const { SOUND_MAP } = require('../out/gta/soundMap');
+t('SFX banks: lookup, header, PCM slices, wav', () => {
+  const os = require('os');
+  const g = fs.mkdtempSync(path.join(os.tmpdir(), 'pawn-sfx-'));
+  fs.mkdirSync(path.join(g, 'audio/CONFIG'), { recursive: true });
+  fs.mkdirSync(path.join(g, 'audio/SFX'));
+  const pak = Buffer.alloc(52); pak.write('GENRL', 0, 'latin1');
+  fs.writeFileSync(path.join(g, 'audio/CONFIG/PakFiles.dat'), pak);
+  // one bank at offset 10 with two sounds of 4 and 6 bytes
+  const header = Buffer.alloc(4804);
+  header.writeUInt16LE(2, 0);
+  header.writeUInt32LE(0, 4); header.writeUInt16LE(22050, 12);
+  header.writeUInt32LE(4, 16); header.writeUInt16LE(11025, 24);
+  const pcm = Buffer.from([1, 0, 2, 0, 3, 0, 4, 0, 5, 0]);
+  fs.writeFileSync(path.join(g, 'audio/SFX/GENRL'), Buffer.concat([Buffer.alloc(10), header, pcm]));
+  const lk = Buffer.alloc(12); lk[0] = 0; lk.writeUInt32LE(10, 4); lk.writeUInt32LE(4804 + pcm.length, 8);
+  fs.writeFileSync(path.join(g, 'audio/CONFIG/BankLkup.dat'), lk);
+  const sfx = SfxBanks.open(g);
+  assert.deepStrictEqual(sfx.banks(), [{ bank: 0, pak: 'GENRL', sounds: 2 }]);
+  const s0 = sfx.sound(0, 0);
+  assert.deepStrictEqual([s0.rate, [...s0.pcm]], [22050, [1, 0, 2, 0]]);
+  assert.deepStrictEqual([...sfx.sound(0, 1).pcm], [3, 0, 4, 0, 5, 0]);
+  assert.strictEqual(sfx.sound(0, 2), undefined);
+  const wav = encodeWav(s0);
+  assert.strictEqual(wav.toString('latin1', 0, 4), 'RIFF');
+  assert.strictEqual(wav.readUInt32LE(24), 22050);
+  assert.strictEqual(wav.length, 44 + 4);
+  assert.strictEqual(SfxBanks.open(path.join(g, 'nothing')), undefined);
+});
+t('sound map: PlayerPlaySound ids -> game bank sounds', () => {
+  // checkpoint red = the frontend "part mission complete" pair, pitched up
+  assert.deepStrictEqual(SOUND_MAP[1139], [[59, 18, -1, 1.26], [59, 19, 1, 1.26]]);
+  assert.strictEqual(SOUND_MAP[1052].length, 2, 'Ammu-Nation buy: left/right pair');
+  assert.strictEqual(SOUND_MAP[1010], 'mission', 'basketball needs a mission bank');
+  assert.strictEqual(SOUND_MAP[1062], 'track');
+  assert.ok(Object.values(SOUND_MAP).filter(Array.isArray).every((a) => a.length > 0));
+});
+
+const { findAttachBlock } = require('../out/assets/attachParse');
+t('attachment editor: finds the attachment code under the cursor', () => {
+  const src = [
+    'stock Hat(playerid)',
+    '{',
+    '    SetPlayerAttachedObject(playerid, 0, 18645, 2, 0.07, 0.0, 0.0, 88.0, 75.0, 0.0);',
+    '    // glasses',
+    '    SetPlayerAttachedObject(playerid, 1, 19022, 2, 0.09, 0.03, 0.0, 90.0, 90.0, 0.0);',
+    '    return 1;',
+    '}',
+    'new obj = CreateObject(19314, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);',
+    'AttachObjectToVehicle(obj, vehicleid, 0.0, -0.4, 0.9, 0.0, 0.0, 0.0);',
+  ];
+  const p = findAttachBlock(src, 4);
+  assert.strictEqual(p.target, 'player');
+  assert.strictEqual(p.text.split('\n').length, 3, 'both attachments, comment kept, return left out');
+  const v = findAttachBlock(src, 7);
+  assert.strictEqual(v.target, 'vehicle');
+  assert.ok(v.text.includes('CreateObject(19314') && v.text.includes('AttachObjectToVehicle'));
+  assert.strictEqual(findAttachBlock(src, 5), undefined, 'not on attachment code');
+  assert.strictEqual(findAttachBlock(src, 0, 'SetPlayerAttachedObject(playerid, 3, 1, 1);').target, 'player', 'selection wins');
+});
+
+const { objectRotation } = require('../out/gta/ipl');
+t('IPL rotation: quaternion -> CreateObject rotX/rotY/rotZ', () => {
+  assert.deepStrictEqual(objectRotation([0, 0, 0, 1]), [0, 0, 0]);
+  // RenderWare stores the inverse rotation: +90 about Z in the file is rotZ -90 in CreateObject
+  assert.deepStrictEqual(objectRotation([0, 0, Math.SQRT1_2, Math.SQRT1_2]), [0, 0, -90]);
+  assert.deepStrictEqual(objectRotation([-Math.SQRT1_2, 0, 0, Math.SQRT1_2]), [90, 0, 0]);
+});
+
+const { findZoneBlock } = require('../out/assets/zoneParse');
+t('GangZone Creator: finds the gang zone code under the cursor', () => {
+  const src = [
+    'new Float:pts[] = {0.0, 0.0, 10.0, 0.0, 10.0, 10.0};',
+    '',
+    'public OnGameModeInit()',
+    '{',
+    '    gz = GangZoneCreate(-100.0, -50.0, 100.0, 50.0);',
+    '    area = CreateDynamicCircle(10.0, 20.0, 30.0);',
+    '    poly = CreateDynamicPolygon(pts);',
+    '    return 1;',
+    '}',
+  ];
+  const b = findZoneBlock(src, 5);
+  assert.ok(b.includes('GangZoneCreate') && b.includes('CreateDynamicCircle') && b.includes('CreateDynamicPolygon'));
+  assert.ok(b.includes('Float:pts[] = {0.0'), 'polygon points defined elsewhere come along');
+  assert.ok(!b.includes('return 1'));
+  assert.strictEqual(findZoneBlock(['main()', '{', '    print("x");', '}'], 2), undefined, 'no gang zone code');
+});
+
+// the webview modules are plain ES modules (Node loads them with require(esm))
+process.removeAllListeners('warning');
+const gz = require('../media/gangzone-core.js');
+t('GangZone Creator: circle/polygon strips, code and re-import', () => {
+  const circle = gz.makeZone('circle', { x: 0, y: 0, r: 100 }, 'Ballas', 'AA00FF', 0x99);
+  circle.strips = 10;
+  const strips = gz.gangRects(circle);
+  assert.strictEqual(strips.length, 10);
+  for (let i = 1; i < strips.length; i++) assert.ok(Math.abs(strips[i][1] - strips[i - 1][3]) < 1e-9, 'strips touch, never overlap');
+  assert.ok(strips.every(([x1, y1, x2, y2]) => x1 >= -100 && x2 <= 100 && y1 >= -100 && y2 <= 100));
+  const poly = gz.makeZone('poly', [[0, 0], [100, 0], [100, 100], [50, 40], [0, 100]], 'Vagos');
+  poly.strips = 8;
+  // a concave polygon: the top strips split in two
+  assert.ok(gz.gangRects(poly).length > 8);
+  assert.ok(gz.contains(poly, 10, 50) && !gz.contains(poly, 50, 80));
+  const rect = gz.makeZone('rect', { x1: 2520, y1: -1620, x2: 2400, y2: -1730 }, 'Grove Street', '00FF00');
+  const code = gz.generate([rect, circle, poly], { streamer: true, callbacks: true });
+  assert.ok(code.includes('gz_Grove_Street = GangZoneCreate(2400.00, -1730.00, 2520.00, -1620.00);'));
+  assert.ok(code.includes('area_Ballas = CreateDynamicCircle(0.00, 0.00, 100.00);'));
+  assert.ok(code.includes('area_Vagos = CreateDynamicPolygon(area_Vagos_points);'));
+  assert.ok(code.includes('GangZoneShowForPlayer(playerid, gz_Ballas[i], 0xAA00FF99)'));
+  assert.ok(code.includes('public OnPlayerEnterDynamicArea(playerid, areaid)'));
+  assert.ok(code.split('\n').every((l) => l.length < 500), 'old pawncc line limit');
+  const back = gz.parseZones(code);
+  assert.deepStrictEqual(back.map((z) => [z.name, z.shape, z.strips]), [['Grove_Street', 'rect', 16], ['Ballas', 'circle', 10], ['Vagos', 'poly', 8]]);
+  assert.deepStrictEqual(back[2].poly, poly.poly);
+  assert.strictEqual(back[1].alpha, 0x99);
+  // plain code written by hand
+  const plain = gz.parseZones('gz_Test = GangZoneCreate(-100.0, -50.0, 100.0, 50.0);\nGangZoneShowForAll(gz_Test, 0xFF000077);\nnew Float:pts[] = {0.0, 0.0, 10.0, 0.0, 10.0, 10.0};\np = CreateDynamicPolygon(pts);\nc = CreateDynamicCylinder(1.0, 2.0, 0.0, 50.0, 30.0);');
+  assert.deepStrictEqual(plain.map((z) => z.shape), ['rect', 'circle', 'poly']);
+  assert.strictEqual(plain[0].alpha, 0x77);
+  assert.strictEqual(plain[1].circle.r, 30);
+});
+
 console.log(`\n${n} tests passed`);

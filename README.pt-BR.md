@@ -8,7 +8,8 @@ Um ambiente completo de Pawn no VS Code:
 - sintaxe e IntelliSense;
 - error lens ao vivo;
 - gerenciador de pacotes via GitHub, com faixas de versão, que instala plugins e includes de qualquer repositório;
-- depuração do servidor com crashdetect.
+- depuração do servidor com crashdetect;
+- ferramentas: editor de Attached Objects (jogador e veículo, em 3D), buscador de objetos (3D, resultados e áreas no mapa), buscador de sprites, preview de animações (3D), player de sons, Dialog Creator e GangZone Creator.
 
 A extensão está disponível em **Português (Brasil)** e **English**. Ela segue o idioma do VS Code, ou
 você pode forçar um idioma com `pawnStudio.language`.
@@ -280,6 +281,70 @@ detecção automática:
 
 ---
 
+## Ferramentas: objetos, sprites, animações, sons e dialogs
+
+A seção **Ferramentas** da barra lateral Pawn abre cinco ferramentas. Todas inserem o código no
+cursor do arquivo em que você estava.
+
+Os buscadores leem modelos, texturas, animações e sons direto da **sua própria instalação do GTA San
+Andreas**: nenhum arquivo do jogo vem junto com a extensão. A pasta do jogo é detectada sozinha
+(chave de registro do SA-MP, depois pastas comuns de instalação). Se não for encontrada, escolha com
+**Pawn: Selecionar a pasta do GTA San Andreas** ou com a configuração `pawnStudio.gtaPath`.
+
+| Ferramenta | O que faz | Insere |
+|---|---|---|
+| **Objetos** | todos os objetos do GTA e do SA-MP (`SAMP.ide`), com busca por ID, modelo ou textura e preview 3D texturizado. Filtros de origem, tipo (estático, por horário, animado), uso no mapa, LODs e distância de visão. Cada objeto mostra todos os lugares onde o jogo coloca ele no mapa. **Resultados no mapa**: busque um nome (`pump`, `atm`…) e veja onde fica cada objeto encontrado, com a posição e a rotação reais. **Área no mapa**: arraste um retângulo no mapa de San Andreas para listar todos os objetos dentro dele | `CreateObject`, `CreateDynamicObject`, `RemoveBuildingForPlayer` (um objeto, todas as cópias de um modelo ou uma área inteira), `SetPlayerPos` e todas as posições de um modelo como array Pawn |
+| **Sprites** | todos os sprites de TextDraw de `models/txd` (`ld_beat:chit`, `ld_tatt:9crown`…), mostrados como imagem, com o tamanho | um TextDraw global ou do jogador já com a fonte de sprite e o tamanho |
+| **Animações** | todas as bibliotecas de animação (`PED`, `DANCING`, `BAR`…), tocando em 3D em qualquer skin, com controles de repetir, "no lugar" e velocidade | `ApplyAnimation(playerid, "LIB", "NOME", …)` |
+| **Sons** | todos os IDs de som com o nome do próprio jogo (`1139 · SOUND_CHECKPOINT_RED`). Os 🔊 **tocam no editor** com os mesmos sons de banco que o jogo usa. A visão "Todos os sons do jogo" deixa escutar os ~62.000 sons do `audio/SFX` e salvar qualquer um como `.wav` | `PlayerPlaySound(…)` com o nome em comentário |
+| **Attached Objects** | editor 3D para posicionar objetos no jogador (qualquer skin, 18 ossos, posição, rotação, escala e cores do material) ou num veículo (qualquer veículo e cor). Move, gira e escala com o mouse; navegador de objetos com miniaturas (chapéus, capacetes, óculos, máscaras…) | `SetPlayerAttachedObject`, ou `CreateObject` + `AttachObjectToVehicle` (`CreateDynamicObject` + `AttachDynamicObjectToVehicle` com o streamer) |
+| **GangZone Creator** | desenha gang zones no mapa de San Andreas: retângulos, círculos e polígonos (ponto a ponto). Move e redimensiona com o mouse, escolhe cor e opacidade, ou digita as coordenadas | `GangZoneCreate` + `GangZoneShowForPlayer`/`ForAll` e, com o streamer, `CreateDynamicRectangle` / `CreateDynamicCircle` / `CreateDynamicPolygon` com `OnPlayerEnterDynamicArea` |
+| **Dialog Creator** | monta um dialog visualmente, em todos os estilos, com preview igual ao do jogo, cores `{RRGGBB}` e o tratamento da resposta | `ShowPlayerDialog` + `OnDialogResponse`, ou easyDialog `Dialog_Show` + `Dialog:nome` |
+
+- **Detalhes do Dialog Creator:**
+  - Com o cursor em um `ShowPlayerDialog` ou `Dialog_Show` existente, o criador abre preenchido com
+    aquele dialog. Ele também está no menu do botão direito do editor.
+  - O estilo do código segue o seu projeto: easyDialog quando ele já usa `Dialog_Show`.
+  - Textos longos são montados com `strcat`, para nenhuma linha passar do limite do compilador.
+- **Texto do dialog:** digite `\t` e `\n` como no Pawn, ou aperte Tab na caixa de texto. Os dois viram
+  colunas nos dialogs `TABLIST`. O SA-MP mostra no máximo 4 colunas (3 tabs por linha): o Dialog
+  Creator avisa quando uma linha passa disso e deixa as colunas extras fora do código.
+- **Attached Objects:** o editor vem do
+  [SA-MP Preview Studio](https://github.com/devbluen/samp-preview-studio), com os modelos lidos do seu
+  jogo. Com o cursor em linhas de `SetPlayerAttachedObject` ou `AttachObjectToVehicle` (ou com elas
+  selecionadas), rode **Pawn: Attached Objects** ou use o menu do botão direito: elas abrem no editor, e
+  **Inserir tudo no editor** escreve o resultado de volta. Atalhos: W mover, E girar, R escalar, F focar.
+- **Quais sons tocam:** a ligação entre o ID do som e os bancos de áudio fica dentro do `gta_sa.exe`.
+  A extensão já vem com essa tabela, reconstruída a partir do código do jogo feito por engenharia
+  reversa ([gta-reversed](https://github.com/gta-reversed/gta-reversed)). Cada ID vem marcado:
+  - 🔊 o jogo toca dos bancos residentes, então é o que os jogadores escutam;
+  - 🔇 precisa de um banco de áudio de missão que um script do jogo carrega, então normalmente fica
+    mudo no SA-MP;
+  - 🎵 inicia uma faixa de música em stream;
+  - sem marca: não toca nada.
+- **Área no mapa:** o mapa é a própria imagem do radar do jogo. As posições vêm dos arquivos IPL do
+  jogo (os IPL de texto e os IPL binários de stream dentro do `gta3.img`). As linhas de
+  `RemoveBuildingForPlayer` geradas incluem os modelos LOD, para o prédio não continuar aparecendo
+  de longe.
+- **Resultados no mapa:** clique em **Resultados no mapa**, embaixo da busca. Todos os objetos que a
+  busca e os filtros encontram aparecem no mapa, com uma cor por modelo. Clique num modelo da lista
+  para ver só as posições dele (numa tabela), ou clique num ponto para pegar as coordenadas, o
+  `CreateObject` com a mesma rotação, o `RemoveBuildingForPlayer` e o `SetPlayerPos`. **Inserir as
+  posições** escreve todas como um array Pawn, útil para montar um sistema em cima das bombas de
+  gasolina, caixas eletrônicos ou portas do próprio jogo. A rotação é convertida do quaternion do IPL
+  para o `rotX, rotY, rotZ` que o `CreateObject` usa.
+- **Zoom do mapa:** todo mapa tem uma barra de zoom à direita (+, controle deslizante, −, mapa
+  inteiro), então não precisa da roda do mouse. Duplo clique também aproxima.
+- **GangZone Creator:** o SA-MP só desenha gang zones retangulares, então círculos e polígonos viram
+  faixas horizontais que não se sobrepõem (você escolhe quantas; o total é conferido com o limite de
+  1024 gang zones). As áreas do streamer seguem a forma exata. O código gerado tem `Zones_Create()`,
+  `Zones_Show(playerid)` e `Zones_Hide(playerid)` (ou as versões `ForAll`). Com o cursor em linhas de
+  `GangZoneCreate` ou `CreateDynamic*`, rode **Pawn: GangZone Creator** ou use o menu do botão direito
+  para abrir no editor; o código que ele gera abre de novo com as mesmas formas. Atalhos: V selecionar,
+  R retângulo, C círculo, P polígono, H mover o mapa, Delete apaga, Ctrl+D duplica.
+
+---
+
 ## Depurar o servidor
 
 **F6**, o botão ▶ da aba *Servidor* ou Executar e Depurar → *Servidor SA-MP / open.mp*:
@@ -335,6 +400,8 @@ detecção automática:
 | `pawnStudio.errorLens.*` | — | error lens (ativar, avisos, outras linguagens) |
 | `pawnStudio.server.path` | `""` | `samp-server.exe` / `omp-server.exe` |
 | `pawnStudio.packages.checkUpdatesOnStartup` | `true` | verificar atualizações ao abrir |
+| `pawnStudio.gtaPath` | `""` | pasta do GTA San Andreas para as ferramentas (vazio = automático) |
+| `pawnStudio.dialogs.codeStyle` | `auto` | código do Dialog Creator: `auto`, `native`, `easy` |
 
 ## Desenvolvimento
 

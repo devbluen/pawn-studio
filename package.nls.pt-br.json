@@ -76,5 +76,21 @@
   "config.language": "Idioma das mensagens da extensão. `auto` segue o idioma do VS Code. (Menus e configurações sempre seguem o VS Code.)",
   "config.language.enum.auto": "Seguir o VS Code",
   "config.language.enum.en": "English",
-  "config.language.enum.pt-br": "Português (Brasil)"
+  "config.language.enum.pt-br": "Português (Brasil)",
+  "command.tools.objects": "Buscador de objetos (preview 3D)",
+  "command.tools.sprites": "Buscador de sprites (TextDraw)",
+  "command.tools.animations": "Preview de animações",
+  "command.tools.sounds": "Buscador de sons",
+  "command.tools.dialog": "Dialog Creator",
+  "command.tools.selectGta": "Selecionar a pasta do GTA San Andreas",
+  "view.tools": "Ferramentas",
+  "config.section.tools": "Ferramentas (assets do GTA e dialogs)",
+  "config.gtaPath": "Pasta do GTA San Andreas (a que tem o `gta_sa.exe`), usada pelos buscadores de objetos, sprites, animações e sons. Vazio = detectar automaticamente (registro do SA-MP e pastas comuns).",
+  "config.dialogs.codeStyle": "Código gerado pelo Dialog Creator.",
+  "config.dialogs.codeStyle.auto": "Detectar pelo projeto (easyDialog se usar Dialog_Show / Dialog:)",
+  "config.dialogs.codeStyle.native": "ShowPlayerDialog + OnDialogResponse",
+  "config.dialogs.codeStyle.easy": "easyDialog: Dialog_Show + Dialog:nome(...)",
+  "command.tools.open": "Ferramentas (objetos, sprites, animações, sons, dialogs)",
+  "command.tools.attach": "Attached Objects (jogador e veículo)",
+  "command.tools.gangzone": "GangZone Creator (retângulo, círculo, polígono)"
 }

@@ -10,6 +10,7 @@ import { LiveChecker } from './liveCheck';
 import { registerLanguageFeatures, SymbolIndex } from './language/features';
 import { findServer, readServerPlugins } from './packages/manifest';
 import { PackagesController } from './packages/ui';
+import { registerTools } from './assets/tools';
 import { CompileView, PackagesView, ServerView } from './views';
 
 let builder: Builder | undefined;
@@ -143,6 +144,8 @@ export function activate(context: vscode.ExtensionContext): void {
     };
     type PkgNode = { pkgKey?: string; repoUrl?: string };
     const reg = (id: string, fn: (...a: any[]) => unknown) => sub.push(vscode.commands.registerCommand(id, fn));
+
+    registerTools(context);
 
     reg('pawnStudio.compile', () => b.compileActive(activeFile()));
     reg('pawnStudio.compileFile', () => {

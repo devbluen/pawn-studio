@@ -231,6 +231,35 @@ exports.run = async function () {
         await vscode.commands.executeCommand('pawnStudio.server.clearErrors');
     });
 
+    await step('tools: asset browser, Dialog Creator, attachment editor and GangZone Creator open as webviews', async () => {
+        const webviews = () =>
+            vscode.window.tabGroups.all.flatMap((g) => g.tabs).filter((tab) => tab.input instanceof vscode.TabInputWebview).map((tab) => tab.input.viewType);
+        await vscode.commands.executeCommand('pawnStudio.tools.objects');
+        await vscode.commands.executeCommand('pawnStudio.tools.sprites'); // same panel, other tab
+        // put the cursor on a dialog call: the creator opens prefilled
+        const doc = await vscode.workspace.openTextDocument({ language: 'pawn', content: 'main()\n{\n\tShowPlayerDialog(playerid, 1, DIALOG_STYLE_LIST, "Menu", "A\\nB", "OK", "");\n}\n' });
+        const ed = await vscode.window.showTextDocument(doc);
+        ed.selection = new vscode.Selection(2, 5, 2, 5);
+        await vscode.commands.executeCommand('pawnStudio.tools.dialog');
+        // attachment editor opened from SetPlayerAttachedObject lines
+        const att = await vscode.workspace.openTextDocument({ language: 'pawn', content: 'Hat(playerid)\n{\n\tSetPlayerAttachedObject(playerid, 0, 18645, 2, 0.07, 0.0, 0.0, 88.0, 75.0, 0.0);\n}\n' });
+        (await vscode.window.showTextDocument(att)).selection = new vscode.Selection(2, 3, 2, 3);
+        await vscode.commands.executeCommand('pawnStudio.tools.attach');
+        // GangZone Creator opened from GangZoneCreate lines
+        const gzDoc = await vscode.workspace.openTextDocument({ language: 'pawn', content: 'Zones()\n{\n\tgz = GangZoneCreate(-100.0, -50.0, 100.0, 50.0);\n}\n' });
+        (await vscode.window.showTextDocument(gzDoc)).selection = new vscode.Selection(2, 3, 2, 3);
+        await vscode.commands.executeCommand('pawnStudio.tools.gangzone');
+        await sleep(800);
+        const types = webviews();
+        assert.strictEqual(types.filter((v) => v.endsWith('pawnStudio.assets')).length, 1, `asset browser: ${types.join(', ')}`);
+        assert.strictEqual(types.filter((v) => v.endsWith('pawnStudio.dialogCreator')).length, 1, `Dialog Creator: ${types.join(', ')}`);
+        assert.strictEqual(types.filter((v) => v.endsWith('pawnStudio.attachEditor')).length, 1, `attachment editor: ${types.join(', ')}`);
+        assert.strictEqual(types.filter((v) => v.endsWith('pawnStudio.gangZoneCreator')).length, 1, `GangZone Creator: ${types.join(', ')}`);
+        const cmds = await vscode.commands.getCommands(true);
+        assert.ok(cmds.includes('pawnStudio.tools.focus'), 'Tools view registered in the sidebar');
+        for (const c of ['open', 'objects', 'sprites', 'animations', 'sounds', 'dialog', 'attach', 'gangzone', 'selectGta']) assert.ok(cmds.includes(`pawnStudio.tools.${c}`), c);
+    });
+
     console.log('\n' + results.join('\n'));
     const failed = results.filter((r) => r.includes('FAILED'));
     console.log(`\n${results.length - failed.length}/${results.length} steps in VS Code`);
