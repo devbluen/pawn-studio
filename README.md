@@ -490,7 +490,7 @@ A variant the package does not have falls back to the plain key of that system.
 | `components` | same format; only when the open.mp component is a separate file |
 | `include` | `"include"`, `["a", "b"]` or `{ "samp": "...", "openmp": "...", "all": "..." }`; left out = detected |
 | `layout` | where each kind of file is inside the archive, per server — see [G](#g-declare-where-each-file-is-layout) |
-| `dependencies` | packages yours needs, installed together with it |
+| `dependencies` | packages yours needs, installed together with it. The sampctl list form (`["user/repo", "user/repo:tag"]`) works too |
 
 Keys of `plugins` / `components`: `windows`, `linux`, `windows-x64`, `linux-x64`, and variants such as
 `linux-dynamic`, `linux-static` or `linux-x86-dynamic`. A value can also be a list of patterns.
@@ -504,6 +504,10 @@ Inside the release file:
 | other `.dll` / `.so` (with a `plugins/` folder present) | next to the server executable (runtime libraries such as `libmariadb.dll`) |
 | folders with `.inc` files | the include path, before the repository source |
 | `samp/…` and `open.mp/…` (one folder per server) | only the folder of the project's server is used |
+
+A `pawn.json` that already has sampctl fields (`user`, `repo`, `include_path`, `resources`) can keep them:
+add the Pawn Studio fields next to them and the same file serves both tools. Archives inside the
+release archive (a `.tar.gz` inside a `.zip`) are opened too.
 
 When the release brings the `.inc` files, the repository source (SDKs, C++ code) is not kept in the
 installer's `.pawn-studio/dependencies/` folder.

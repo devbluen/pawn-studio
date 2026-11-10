@@ -87,6 +87,32 @@ export const STDLIBS = ['pawn-lang/samp-stdlib', 'pawn-lang/pawn-stdlib', 'openm
 
 const FIELDS = ['dependencies', 'devDependencies'] as const;
 
+/** sampctl packages: "include_path": "src" (Pawn Studio's own field is "include"). */
+function sampctlIncludePath(pkg: PawnJson | undefined): string | undefined {
+    const v = pkg?.['include_path'];
+    return typeof v === 'string' && v ? v : undefined;
+}
+
+/**
+ * Dependencies of an installed package: the Pawn Studio object { "user/repo": "^1.0" }, or the sampctl
+ * list [ "user/repo", "user/repo:tag", "user/repo@branch", "user/repo#commit" ].
+ */
+export function packageDependencies(pkg: PawnJson | undefined): Array<[string, string]> {
+    const d = pkg?.dependencies as unknown;
+    if (Array.isArray(d)) {
+        const out: Array<[string, string]> = [];
+        for (const item of d) {
+            if (typeof item !== 'string') continue;
+            const m = /^(?:https?:\/\/github\.com\/)?([\w.-]+\/[\w.-]+?)(?:\.git)?(?:([:@#])(.+))?$/.exec(item.trim());
+            if (!m) continue;
+            const req = !m[2] ? 'latest' : m[2] === ':' ? `tag:${m[3]}` : m[2] === '@' ? `branch:${m[3]}` : `commit:${m[3]}`;
+            out.push([m[1], req]);
+        }
+        return out;
+    }
+    return Object.entries((d as Record<string, string>) ?? {}).filter(([, v]) => typeof v === 'string');
+}
+
 /** Folder of everything Pawn Studio downloads or generates for a project (git-ignored on its own). */
 export const STUDIO_DIR = '.pawn-studio';
 /** Where packages were installed before 1.4 (moved on the first read of the lock). */
@@ -464,7 +490,7 @@ export class PackageManager {
         const pkg = readPackageManifest(path.resolve(this.root, entry.dir));
         const childKeys: string[] = [];
         const projectDirect = this.directDeps();
-        for (const [cn, creq] of Object.entries(pkg?.dependencies ?? {})) {
+        for (const [cn, creq] of packageDependencies(pkg)) {
             const child = parsePackageName(cn);
             if (!child) continue;
             const ck = depKey(child);
@@ -497,7 +523,7 @@ export class PackageManager {
             refType: target.refType,
             commit: target.commit,
             dir: rel(dir),
-            includePaths: detectIncludeDirs(dir, includeFor(pkg?.include, this.target().server)).map((p) => rel(path.join(dir, p))),
+            includePaths: detectIncludeDirs(dir, includeFor(pkg?.include ?? sampctlIncludePath(pkg), this.target().server)).map((p) => rel(path.join(dir, p))),
             plugins: [],
             files: [],
             dependencies: [],
@@ -589,6 +615,16 @@ export class PackageManager {
                 const f = path.join(dir, asset.name);
                 fs.writeFileSync(f, buf);
                 files = [f];
+            }
+            // an archive inside the archive (e.g. linux.zip → linux.tar.gz) and no binaries outside it
+            if (!files.some((f) => /\.(dll|so)$/i.test(f))) {
+                for (const inner of files.filter((f) => /\.(zip|tar\.gz|tgz)$/i.test(f))) {
+                    try {
+                        files.push(...extractTo(readArchive(fs.readFileSync(inner)), path.join(dir, path.basename(inner).replace(/\.(zip|tar\.gz|tgz)$/i, ''))));
+                    } catch {
+                        /* not an archive we can read */
+                    }
+                }
             }
             x = { dir, files };
             extracted.set(asset.name, x);

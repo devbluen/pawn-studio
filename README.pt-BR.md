@@ -492,7 +492,7 @@ Uma variante que o pacote não tem cai na chave simples daquele sistema.
 | `components` | mesmo formato; só quando o component do open.mp é um arquivo separado |
 | `include` | `"include"`, `["a", "b"]` ou `{ "samp": "...", "openmp": "...", "all": "..." }`; sem o campo = detectado |
 | `layout` | onde fica cada tipo de arquivo dentro do arquivo da release, por servidor — veja [G](#g-diga-onde-fica-cada-arquivo-layout) |
-| `dependencies` | pacotes que o seu precisa, instalados junto com ele |
+| `dependencies` | pacotes que o seu precisa, instalados junto com ele. A forma em lista do sampctl (`["usuario/repo", "usuario/repo:tag"]`) também funciona |
 
 Chaves de `plugins` / `components`: `windows`, `linux`, `windows-x64`, `linux-x64` e variantes como
 `linux-dynamic`, `linux-static` ou `linux-x86-dynamic`. O valor também pode ser uma lista de padrões.
@@ -506,6 +506,10 @@ Dentro do arquivo da release:
 | outros `.dll` / `.so` (quando existe uma pasta `plugins/`) | ao lado do executável do servidor (bibliotecas como `libmariadb.dll`) |
 | pastas com `.inc` | os includes, antes do código do repositório |
 | `samp/…` e `open.mp/…` (uma pasta por servidor) | só a pasta do servidor do projeto é usada |
+
+Um `pawn.json` que já tem campos do sampctl (`user`, `repo`, `include_path`, `resources`) pode mantê-los:
+adicione os campos do Pawn Studio ao lado e o mesmo arquivo serve às duas ferramentas. Arquivos
+dentro do arquivo da release (um `.tar.gz` dentro de um `.zip`) também são abertos.
 
 Quando a release traz os `.inc`, o código-fonte do repositório (SDKs, C++) não fica na pasta
 `.pawn-studio/dependencies/` de quem instalou.

@@ -245,6 +245,35 @@ t('"layout" declares where each file is inside the archive', async () => {
     assert.match(r.log, /"layout": nope\/plugins/);
 });
 
+t('nested archive: a .tar.gz inside the .zip (Pawn-Shell-API style)', async () => {
+    const repo = { source: { 'ShellApi.inc': '' }, assets: { 'shellapi-1.1.0-linux.zip': zip({ 'shellapi-1.1.0-linux.zip.inner.zip': zip({ 'ShellApi.inc': '', 'ShellAPI.so': 'S' }) }) } };
+    // the inner archive is a zip here (the minimal writer makes zips): same path as a .tar.gz
+    repo.assets['shellapi-1.1.0-linux.zip'] = zip({ 'shellapi-1.1.0-linux.zip': zip({ 'ShellApi.inc': '', 'ShellAPI.so': 'S' }) });
+    const r = await install(repo, 'samp', { os: 'linux' });
+    assert.ok(r.exists('plugins/ShellAPI.so'), r.log);
+});
+
+t('layout: versioned libraries stay with the component (libboost.so.1.74.0), one binary for both servers', async () => {
+    const manifest = {
+        plugins: { linux: 'bridge-*.tar.gz' },
+        layout: { samp: { plugins: 'components/bridge.*', include: 'include' }, openmp: { components: 'components', include: 'include' } },
+    };
+    const repo = { source: { 'pawn.json': JSON.stringify(manifest) }, assets: { 'bridge-1.0.tar.gz': zip({ 'components/bridge.so': 'B', 'components/libboost_system.so.1.74.0': 'L', 'include/bridge.inc': '' }) } };
+    let r = await install(repo, 'openmp', { os: 'linux' });
+    assert.ok(r.exists('components/bridge.so') && r.exists('components/libboost_system.so.1.74.0'), r.log);
+    r = await install(repo, 'samp', { os: 'linux' });
+    assert.ok(r.exists('plugins/bridge.so') && !r.exists('plugins/libboost_system.so.1.74.0'), r.log);
+    assert.match(r.log, /server\.cfg needs: plugins bridge\.so/, 'the test server is Windows: the Linux line is in the log');
+});
+
+t('sampctl package fields: "dependencies" list and "include_path"', () => {
+    const { packageDependencies } = require('../out/packages/manager');
+    assert.deepStrictEqual(packageDependencies({ dependencies: ['pawn-lang/YSI-Includes', 'Zeex/amx_assembly:v1.0', 'a/b@dev', 'c/d#abc123', 'https://github.com/e/f.git'] }), [
+        ['pawn-lang/YSI-Includes', 'latest'], ['Zeex/amx_assembly', 'tag:v1.0'], ['a/b', 'branch:dev'], ['c/d', 'commit:abc123'], ['e/f', 'latest'],
+    ]);
+    assert.deepStrictEqual(packageDependencies({ dependencies: { 'x/y': '^1.0' } }), [['x/y', '^1.0']]);
+});
+
 (async () => {
     let n = 0;
     for (const [name, fn] of tests) {

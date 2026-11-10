@@ -122,7 +122,9 @@ export function applyLayout(root: string, files: string[], spec: LayoutSpec, ser
     const found = (p: string, b: string) => files.some((f) => { const r = rel(f); const q = b ? b + '/' + p : p; return r === q || r.startsWith(q + '/') || (/[*?]/.test(p) && globToRegex(q).test(r)); });
     if (tops.length === 1 && declared.length && !declared.some((p) => found(p, '')) && declared.some((p) => found(p, tops[0]))) base = tops[0];
     const full = (p: string) => (base ? base + '/' + p : p);
+    // plugins are loaded by name (x.dll / x.so); components and libraries may be versioned (libboost.so.1.74.0)
     const ext = platform === 'windows' ? /\.dll$/i : /\.so$/i;
+    const libExt = platform === 'windows' ? /\.dll$/i : /\.so(\.\d+)*$/i;
     const missing: string[] = [];
     const pick = (k: 'plugins' | 'components' | 'libraries') => {
         const out: string[] = [];
@@ -133,7 +135,7 @@ export function applyLayout(root: string, files: string[], spec: LayoutSpec, ser
                 return /[*?]/.test(p) ? globToRegex(q).test(r) : r === q || r.startsWith(q + '/');
             });
             if (!hit.length) missing.push(p);
-            out.push(...hit.filter((f) => ext.test(f)));
+            out.push(...hit.filter((f) => (k === 'plugins' ? ext : libExt).test(f)));
         }
         return [...new Set(out)];
     };

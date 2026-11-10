@@ -101,6 +101,16 @@ export async function run(pawn: Pick<Pawn, "github">, owner: string, name: strin
                 files = [path.join(dir, a.name)];
             }
         }
+        // an archive inside the archive (linux.zip → linux.tar.gz), like the installer does
+        if (!files.some((f) => /\.(dll|so)$/i.test(f))) {
+            for (const inner of files.filter((f) => /\.(zip|tar\.gz|tgz)$/i.test(f))) {
+                try {
+                    files.push(...extractTo(readArchive(fs.readFileSync(inner)), path.join(dir, path.basename(inner).replace(/\.(zip|tar\.gz|tgz)$/i, ''))));
+                } catch {
+                    /* not readable */
+                }
+            }
+        }
         cache.set(assetName, files);
         return files;
     };
