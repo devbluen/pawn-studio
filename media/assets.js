@@ -84,7 +84,8 @@ function shell() {
     for (const [id, label] of [['objects', L.objects], ['sprites', L.sprites], ['animations', L.animations], ['sounds', L.sounds]]) {
         tabs.append($('div', { class: 'tab' + (state.tab === id ? ' active' : ''), onclick: () => switchTab(id) }, label));
     }
-    tabs.append($('div', { class: 'spacer' }), $('div', { class: 'src', title: gtaDir }, fmt(L.gtaFrom, gtaDir)));
+    tabs.append($('div', { class: 'spacer' }), $('div', { class: 'src', title: gtaDir }, fmt(L.gtaFrom, gtaDir)),
+        $('button', { class: 'secondary src-btn', title: L.changeGta, onclick: () => vscode.postMessage({ type: 'pickGta' }) }, `📁 ${L.changeGta}`));
     const body = $('div', { class: 'split', id: 'body' });
     app.append(tabs, body);
     return body;

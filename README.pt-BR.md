@@ -47,6 +47,24 @@ Um `.pwn` conta como **principal** quando:
 Um candidato que é incluído por outro principal deixa de ser principal. Assim, módulos com hook ALS
 não são confundidos com gamemodes.
 
+## Painel "Pawn Studio"
+
+Toda compilação aparece na aba **Pawn Studio** do painel de baixo (ao lado de Problems, Output e
+Terminal):
+
+- o alvo, a hora e quanto tempo levou;
+- o tamanho do `.amx` e quanto ele cresceu ou diminuiu desde a compilação anterior;
+- a memória que o script precisa (cabeçalho, código, dados e pilha/heap com o uso estimado), tirada
+  do resumo do pawncc;
+- os erros e avisos: clique num deles para ir até a linha;
+- em **Detalhes**: o compilador, as pastas de include e a linha de comando.
+
+A mesma aba guarda o log do gerenciador de pacotes e o log do servidor nas sessões de depuração. Os
+filtros no topo separam por tipo. A configuração `pawnStudio.revealOutput` escolhe quando a aba abre:
+em toda compilação (padrão), só quando dá erro, ou nunca.
+
+![Painel Pawn Studio: duas compilações com o tamanho do .amx, a barra de memória e um aviso](images/console.png)
+
 ## Error lens ao vivo
 
 Os erros aparecem **no fim da própria linha** enquanto você digita, sem precisar salvar. São duas
@@ -293,7 +311,9 @@ cursor do arquivo em que você estava.
 Os buscadores leem modelos, texturas, animações e sons direto da **sua própria instalação do GTA San
 Andreas**: nenhum arquivo do jogo vem junto com a extensão. A pasta do jogo é detectada sozinha
 (chave de registro do SA-MP, depois pastas comuns de instalação). Se não for encontrada, escolha com
-**Pawn: Selecionar a pasta do GTA San Andreas** ou com a configuração `pawnStudio.gtaPath`.
+**Pawn: Selecionar a pasta do GTA San Andreas** ou com a configuração `pawnStudio.gtaPath`. Para usar
+outra cópia do jogo depois, clique em **Trocar pasta**, no canto de cima dos buscadores, ou no item
+**GTA San Andreas**, no fim da seção Ferramentas (ele mostra a pasta em uso).
 
 | Ferramenta | O que faz | Insere |
 |---|---|---|

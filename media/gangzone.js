@@ -620,6 +620,16 @@ window.addEventListener('message', (ev) => {
         changed();
         if (m.import) doImport(m.import);
     } else if (m.type === 'import') doImport(m.text);
+    else if (m.type === 'map' && map) {
+        // another GTA folder: new radar image, same view and zones
+        const view = { cx: map.cx, cy: map.cy, scale: map.scale };
+        map.dispose();
+        mapBox.querySelectorAll('.map-tools').forEach((e) => e.remove());
+        map = new MapView(mapBox, m.map, { tool: 'drag-pans', interact, overlay });
+        map.centerOn(view.cx, view.cy, view.scale);
+        map.fitted = true;
+        setTool(st.tool);
+    }
 });
 
 buildSide();

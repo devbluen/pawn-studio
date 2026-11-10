@@ -710,4 +710,13 @@ t('GangZone Creator: circle/polygon strips, code and re-import', () => {
   assert.strictEqual(plain[1].circle.r, 30);
 });
 
+t('Pawn Studio panel: memory summary from the pawncc output', () => {
+  const { parseSizes } = require('../out/compiler');
+  const out = 'Pawn compiler 3.10.10\n\nHeader size:           1300 bytes\nCode size:             8440 bytes\nData size:            12852 bytes\nStack/heap size:      16384 bytes; estimated max. usage=39 cells (156 bytes)\nTotal requirements:   38976 bytes\n';
+  assert.deepStrictEqual(parseSizes(out), { header: 1300, code: 8440, data: 12852, stackHeap: 16384, stackUsed: 156, total: 38976 });
+  const rec = parseSizes(out.replace(/estimated max\. usage=39 cells \(156 bytes\)/, 'estimated max. usage: unknown, due to recursion'));
+  assert.strictEqual(rec.stackUsed, undefined);
+  assert.strictEqual(parseSizes('1 Error.'), undefined);
+});
+
 console.log(`\n${n} tests passed`);

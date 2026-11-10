@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { AmxSizes, parseSizes } from './compiler';
 import { parseOutput, PawnDiagnostic, runCompiler } from './compiler';
 import { baseFolder, cfg, expandPath, Pawn, PAWN_EXT, rel } from './context';
 import { t } from './i18n';
@@ -30,10 +31,20 @@ export interface CompileResult {
     at: Date;
     amx: string;
     amxSize?: number;
+    /** memory summary printed by pawncc */
+    sizes?: AmxSizes;
     compiler: string;
     /** automatic check on save (does not produce the real .amx) */
     background: boolean;
     exitCode: number | null;
+}
+
+export interface CompileJobInfo {
+    target: Target;
+    compiler: string;
+    commandLine: string;
+    includeDirs: string[];
+    output: string;
 }
 
 const CHOICES_KEY = 'pawnStudio.choices';
@@ -55,9 +66,12 @@ export class Builder {
     readonly onDidCompile = this._onDidCompile.event;
     private _onDidStart = new vscode.EventEmitter<Target>();
     readonly onDidStart = this._onDidStart.event;
+    private _onDidStartJob = new vscode.EventEmitter<CompileJobInfo>();
+    /** A real (not background) compilation started: what runs and how. */
+    readonly onDidStartJob = this._onDidStartJob.event;
 
     constructor(private pawn: Pawn) {
-        pawn.ctx.subscriptions.push(this._onDidCompile, this._onDidStart);
+        pawn.ctx.subscriptions.push(this._onDidCompile, this._onDidStart, this._onDidStartJob);
     }
 
     get last(): CompileResult | undefined {
@@ -284,8 +298,10 @@ export class Builder {
         const handle = { kill: job.kill, background };
         this.running = handle;
 
-        const log = pawn.output;
+        // the compile log goes to the output channel only: the Pawn Studio panel shows it as a card
+        const log = pawn.rawOutput;
         if (!background) {
+            this._onDidStartJob.fire({ target, compiler, commandLine: job.commandLine, includeDirs, output: outFile });
             log.appendLine('');
             log.appendLine(`[${new Date().toLocaleTimeString()}] ${t('Compiling {0} {1}  ({2})', kindLabel(target.kind).toLowerCase(), rel(target.entry), target.reason)}`);
             log.appendLine(`> ${job.commandLine}`);
@@ -337,6 +353,7 @@ export class Builder {
             at: new Date(),
             amx: background ? this.outputFor(target.entry) : outFile,
             amxSize,
+            sizes: ok ? parseSizes(res.output) : undefined,
             compiler,
             background,
             exitCode: res.exitCode,
@@ -352,8 +369,6 @@ export class Builder {
                 ? `✔ ${t('{0} built in {1}s — {2} warning(s) → {3}', path.basename(outFile), secs, warnings, rel(outFile))}`
                 : `✖ ${t('Failed in {0}s — {1} error(s), {2} warning(s) (code {3})', secs, errors, warnings, String(res.exitCode))}`,
         );
-        const reveal = cfg().get<string>('revealOutput');
-        if (reveal === 'always' || (reveal === 'onError' && !ok)) log.show(true);
 
         if (!opts.quiet) {
             if (ok) {
@@ -361,12 +376,12 @@ export class Builder {
                 vscode.window.setStatusBarMessage(`$(check) ${t('{0} compiled in {1}s', path.basename(outFile), secs)}${w}`, 6000);
             } else {
                 const showProblems = t('Show problems');
-                const showOutput = t('Show output');
+                const showOutput = t('Show details');
                 vscode.window
                     .showErrorMessage(t('{0}: {1} error(s), {2} warning(s).', path.basename(target.entry), errors, warnings), showProblems, showOutput)
                     .then((a) => {
                         if (a === showProblems) vscode.commands.executeCommand('workbench.actions.view.problems');
-                        if (a === showOutput) log.show();
+                        if (a === showOutput) vscode.commands.executeCommand('pawnStudio.console.focus');
                     });
             }
         }

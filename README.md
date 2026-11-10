@@ -47,6 +47,24 @@ A `.pwn` is a **main file** when:
 A candidate included by another main file is not a main file, so ALS hook modules are never
 mistaken for gamemodes.
 
+## "Pawn Studio" panel
+
+Every compilation shows up in the **Pawn Studio** tab of the bottom panel (next to Problems, Output and
+Terminal):
+
+- target, time and how long it took;
+- the `.amx` size, and how much it grew or shrank since the previous build;
+- the memory the script needs (header, code, data and stack/heap with the estimated use), from the
+  pawncc summary;
+- errors and warnings: click one to go to the line;
+- under **Details**: the compiler, the include folders and the command line.
+
+The same tab also keeps the package manager log and the server log of debug sessions. The chips on top
+filter by kind. `pawnStudio.revealOutput` chooses when the tab opens: on every compilation (default),
+only on errors, or never.
+
+![Pawn Studio panel: two compilations with the .amx size, the memory bar and a warning](images/console.png)
+
 ## Live error lens
 
 Errors show up **at the end of the line** while you type, with no need to save. There are two layers:
@@ -292,7 +310,9 @@ the file you were editing.
 The finders read models, textures, animations and sounds straight from **your own GTA San Andreas
 installation**: nothing from the game is bundled with the extension. The game folder is detected on
 its own (SA-MP's registry key, then common install folders). If it isn't found, pick it with
-**Pawn: Select the GTA San Andreas folder** or the `pawnStudio.gtaPath` setting.
+**Pawn: Select the GTA San Andreas folder** or the `pawnStudio.gtaPath` setting. To use another
+copy of the game later, click **Change folder** at the top right of the finders, or the
+**GTA San Andreas** item at the end of the Tools section (it shows the folder in use).
 
 | Tool | What it does | Inserts |
 |---|---|---|

@@ -15,6 +15,27 @@ import { t } from '../i18n';
 
 let sharedGta: GtaInstall | undefined;
 
+/** Lets the user pick the GTA San Andreas folder (validated) and saves it in pawnStudio.gtaPath. */
+export async function pickGtaFolder(): Promise<boolean> {
+    const current = findGtaDir(cfg().get<string>('gtaPath') || undefined);
+    const sel = await vscode.window.showOpenDialog({
+        canSelectFolders: true,
+        canSelectFiles: false,
+        defaultUri: current ? vscode.Uri.file(current) : undefined,
+        openLabel: t('Use this folder'),
+        title: t('Select the GTA San Andreas folder (the one with gta_sa.exe)'),
+    });
+    if (!sel?.length) return false;
+    if (!isGtaDir(sel[0].fsPath)) {
+        vscode.window.showErrorMessage(t('{0} does not look like a GTA San Andreas folder (gta_sa.exe and models/gta3.img are required).', sel[0].fsPath));
+        return false;
+    }
+    await cfg().update('gtaPath', sel[0].fsPath, vscode.ConfigurationTarget.Global);
+    sharedGta = undefined;
+    vscode.window.setStatusBarMessage(t('$(check) GTA San Andreas: {0}', sel[0].fsPath), 4000);
+    return true;
+}
+
 /** The GTA installation from the setting / registry / common folders, shared by every panel. */
 export function gtaInstall(): GtaInstall {
     const dir = findGtaDir(cfg().get<string>('gtaPath') || undefined);
@@ -196,22 +217,10 @@ export class AssetBrowser extends Panel {
                 this.post({ type: 'init', tab: this.pendingTab, gtaDir: dir, error });
                 return;
             }
-            case 'pickGta': {
-                const sel = await vscode.window.showOpenDialog({
-                    canSelectFolders: true,
-                    canSelectFiles: false,
-                    title: t('Select the GTA San Andreas folder (the one with gta_sa.exe)'),
-                });
-                if (!sel?.length) return;
-                if (!isGtaDir(sel[0].fsPath)) {
-                    vscode.window.showErrorMessage(t('{0} does not look like a GTA San Andreas folder (gta_sa.exe and models/gta3.img are required).', sel[0].fsPath));
-                    return;
-                }
-                await cfg().update('gtaPath', sel[0].fsPath, vscode.ConfigurationTarget.Global);
-                this.install = undefined;
-                this.post({ type: 'reset' });
+            case 'pickGta':
+                // the settings listener resets the panel
+                await pickGtaFolder();
                 return;
-            }
             case 'objects': {
                 // how often each model is placed on the map (and how often as a far-away LOD)
                 const placed = new Map<number, number>();
@@ -350,6 +359,7 @@ export class AssetBrowser extends Panel {
             noGta: t('GTA San Andreas was not found. The asset browser reads models, textures, animations and sounds from your own game installation.'),
             pickGta: t('Select the GTA folder'),
             gtaFrom: t('Reading from {0}'),
+            changeGta: t('Change folder'),
             pickItem: t('Select an item on the left'),
             insert: t('Insert'),
             copy: t('Copy'),
@@ -797,6 +807,18 @@ export class GangZoneCreator extends Panel {
 
     constructor(ctx: vscode.ExtensionContext, editors: EditorTracker) {
         super(ctx, editors, 'pawnStudio.gangZoneCreator');
+        this.disposables.push(
+            vscode.workspace.onDidChangeConfiguration((e) => {
+                if (!e.affectsConfiguration('pawnStudio.gtaPath') || !this.panel) return;
+                let map: string | undefined;
+                try {
+                    map = gtaInstall().mapPng();
+                } catch {
+                    map = undefined;
+                }
+                this.post({ type: 'map', map });
+            }),
+        );
     }
 
     protected title(): string {
@@ -832,12 +854,7 @@ export class GangZoneCreator extends Panel {
                 return;
             }
             case 'pickGta':
-                await vscode.commands.executeCommand('pawnStudio.tools.selectGta');
-                if (this.panel) {
-                    // reload with the map
-                    this.panel.dispose();
-                    this.open();
-                }
+                await pickGtaFolder();
                 return;
             case 'insert':
                 await this.editors.insert(m.code, false);

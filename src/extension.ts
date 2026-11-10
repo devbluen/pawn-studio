@@ -11,6 +11,7 @@ import { registerLanguageFeatures, SymbolIndex } from './language/features';
 import { findServer, readServerPlugins } from './packages/manifest';
 import { PackagesController } from './packages/ui';
 import { registerTools } from './assets/tools';
+import { registerConsole } from './console';
 import { CompileView, PackagesView, ServerView } from './views';
 
 let builder: Builder | undefined;
@@ -21,6 +22,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const pawn = new Pawn(context);
     const b = new Builder(pawn);
     builder = b;
+    registerConsole(pawn, b);
     const index = new SymbolIndex(pawn, b);
     const packages = new PackagesController(pawn);
     const compileView = new CompileView(pawn, b);

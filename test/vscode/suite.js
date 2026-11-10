@@ -257,6 +257,8 @@ exports.run = async function () {
         assert.strictEqual(types.filter((v) => v.endsWith('pawnStudio.gangZoneCreator')).length, 1, `GangZone Creator: ${types.join(', ')}`);
         const cmds = await vscode.commands.getCommands(true);
         assert.ok(cmds.includes('pawnStudio.tools.focus'), 'Tools view registered in the sidebar');
+        assert.ok(cmds.includes('pawnStudio.console.focus') && cmds.includes('pawnStudio.console.clear'), 'Pawn Studio panel registered'); // 'console.clear'
+        await vscode.commands.executeCommand('pawnStudio.console.focus');
         for (const c of ['open', 'objects', 'sprites', 'animations', 'sounds', 'dialog', 'attach', 'gangzone', 'selectGta']) assert.ok(cmds.includes(`pawnStudio.tools.${c}`), c);
     });
 

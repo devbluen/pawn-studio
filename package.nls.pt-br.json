@@ -53,10 +53,10 @@
   "config.entry": "Alvo fixo: se definido, **todo** arquivo compila este `.pwn`. Use o comando *Pawn: Fixar alvo de compilação*.",
   "config.saveBeforeCompile": "Salvar arquivos .pwn/.inc modificados antes de compilar.",
   "config.lintOnSave": "Ao salvar, roda o pawncc em segundo plano (numa pasta temporária, sem tocar no `.amx`).",
-  "config.revealOutput": "Quando mostrar o painel de saída do compilador.",
-  "config.revealOutput.enum.always": "Sempre",
+  "config.revealOutput": "Quando mostrar o painel **Pawn Studio** (painel de baixo) com a compilação: alvo, tempo, tamanho do `.amx`, memória e erros.",
+  "config.revealOutput.enum.always": "Em toda compilação",
   "config.revealOutput.enum.onError": "Só quando a compilação falhar",
-  "config.revealOutput.enum.never": "Nunca",
+  "config.revealOutput.enum.never": "Nunca (fica só na aba)",
   "config.entryExclude": "Glob de pastas que nunca contêm arquivos principais.",
   "config.section.error-lens-and-live-checking": "Error lens e verificação ao vivo",
   "config.errorLens.enabled": "Mostrar erros e avisos no fim da linha.",
@@ -92,5 +92,7 @@
   "config.dialogs.codeStyle.easy": "easyDialog: Dialog_Show + Dialog:nome(...)",
   "command.tools.open": "Ferramentas (objetos, sprites, animações, sons, dialogs)",
   "command.tools.attach": "Attached Objects (jogador e veículo)",
-  "command.tools.gangzone": "GangZone Creator (retângulo, círculo, polígono)"
+  "command.tools.gangzone": "GangZone Creator (retângulo, círculo, polígono)",
+  "view.console": "Pawn Studio",
+  "command.console.clear": "Limpar o painel Pawn Studio"
 }

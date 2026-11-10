@@ -6,9 +6,17 @@ import { t } from '../i18n';
 import { parseDialogCall } from './dialogParse';
 import { findAttachBlock } from './attachParse';
 import { findZoneBlock } from './zoneParse';
-import { AssetBrowser, AssetTab, AttachEditor, DialogCreator, DialogPrefill, EditorTracker, GangZoneCreator } from './panels';
+import { AssetBrowser, AssetTab, AttachEditor, DialogCreator, DialogPrefill, EditorTracker, GangZoneCreator, pickGtaFolder } from './panels';
+import { findGtaDir } from '../gta/install';
+import { cfg } from '../context';
 
 class ToolsView implements vscode.TreeDataProvider<vscode.TreeItem> {
+    private _onDidChange = new vscode.EventEmitter<void>();
+    readonly onDidChangeTreeData = this._onDidChange.event;
+    refresh(): void {
+        this._onDidChange.fire();
+    }
+
     getTreeItem(e: vscode.TreeItem): vscode.TreeItem {
         return e;
     }
@@ -21,6 +29,10 @@ class ToolsView implements vscode.TreeDataProvider<vscode.TreeItem> {
             i.tooltip = tooltip;
             return i;
         };
+        // where the finders read the game from: click to pick another folder
+        const dir = findGtaDir(cfg().get<string>('gtaPath') || undefined);
+        const gta = item(t('GTA San Andreas'), dir ? 'folder' : 'warning', 'pawnStudio.tools.selectGta', dir ? t('{0}\nClick to use another GTA San Andreas folder.', dir) : t('GTA San Andreas not found. Click to choose its folder.'));
+        gta.description = dir ? dir : t('not found — click to choose');
         return [
             item(t('Objects'), 'symbol-class', 'pawnStudio.tools.objects', t('Search the 15,000+ GTA and SA-MP objects by ID or name, with a 3D preview')),
             item(t('Sprites'), 'file-media', 'pawnStudio.tools.sprites', t('TextDraw sprites (ld_beat:chit…) with image preview')),
@@ -29,6 +41,7 @@ class ToolsView implements vscode.TreeDataProvider<vscode.TreeItem> {
             item(t('Attached Objects'), 'person-add', 'pawnStudio.tools.attach', t('Position objects on the player (SetPlayerAttachedObject) or on a vehicle (AttachObjectToVehicle) in 3D')),
             item(t('Dialog Creator'), 'comment-discussion', 'pawnStudio.tools.dialog', t('Build a dialog visually and generate the code')),
             item(t('GangZone Creator'), 'map', 'pawnStudio.tools.gangzone', t('Draw gang zones (rectangle, circle, polygon) on the map and generate the code, with streamer areas')),
+            gta,
         ];
     }
 }
@@ -39,7 +52,12 @@ export function registerTools(ctx: vscode.ExtensionContext): void {
     const dialogs = new DialogCreator(ctx, editors);
     const attach = new AttachEditor(ctx, editors);
     const zones = new GangZoneCreator(ctx, editors);
-    ctx.subscriptions.push(editors, assets, dialogs, attach, zones, vscode.window.registerTreeDataProvider('pawnStudio.tools', new ToolsView()));
+    const toolsView = new ToolsView();
+    ctx.subscriptions.push(
+        editors, assets, dialogs, attach, zones,
+        vscode.window.registerTreeDataProvider('pawnStudio.tools', toolsView),
+        vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration('pawnStudio.gtaPath') && toolsView.refresh()),
+    );
     const tab = (id: AssetTab) => () => assets.open(id);
     const reg = (id: string, fn: (...a: any[]) => unknown) => ctx.subscriptions.push(vscode.commands.registerCommand(id, fn));
     reg('pawnStudio.tools.objects', tab('objects'));
@@ -49,7 +67,7 @@ export function registerTools(ctx: vscode.ExtensionContext): void {
     // one entry point that works whatever the sidebar layout is (🧰 in the Pawn views' header)
     reg('pawnStudio.tools.open', async () => {
         type Item = vscode.QuickPickItem & { command: string };
-        const items: Item[] = new ToolsView().getChildren().map((i) => ({
+        const items: Item[] = new ToolsView().getChildren().filter((i) => i.command?.command !== 'pawnStudio.tools.selectGta').map((i) => ({
             label: `$(${(i.iconPath as vscode.ThemeIcon).id}) ${String(i.label)}`,
             detail: String(i.tooltip ?? ''),
             command: i.command!.command,
@@ -57,10 +75,7 @@ export function registerTools(ctx: vscode.ExtensionContext): void {
         const pick = await vscode.window.showQuickPick(items, { title: t('Pawn tools'), matchOnDetail: true });
         if (pick) await vscode.commands.executeCommand(pick.command);
     });
-    reg('pawnStudio.tools.selectGta', async () => {
-        const sel = await vscode.window.showOpenDialog({ canSelectFolders: true, canSelectFiles: false, title: t('Select the GTA San Andreas folder (the one with gta_sa.exe)') });
-        if (sel?.length) await vscode.workspace.getConfiguration('pawnStudio').update('gtaPath', sel[0].fsPath, vscode.ConfigurationTarget.Global);
-    });
+    reg('pawnStudio.tools.selectGta', () => pickGtaFolder());
     reg('pawnStudio.tools.attach', () => {
         // the attachment lines under the cursor (or the selection) open in the editor
         const ed = vscode.window.activeTextEditor;

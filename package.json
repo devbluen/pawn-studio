@@ -2,7 +2,7 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "devbluen",
   "license": "MIT",
   "repository": {
@@ -271,6 +271,12 @@
         "title": "%command.tools.open%",
         "category": "Pawn",
         "icon": "$(tools)"
+      },
+      {
+        "command": "pawnStudio.console.clear",
+        "title": "%command.console.clear%",
+        "category": "Pawn",
+        "icon": "$(clear-all)"
       }
     ],
     "keybindings": [
@@ -298,6 +304,13 @@
           "title": "%view.container%",
           "icon": "media/pawn.svg"
         }
+      ],
+      "panel": [
+        {
+          "id": "pawnStudioPanel",
+          "title": "%view.console%",
+          "icon": "media/pawn.svg"
+        }
       ]
     },
     "views": {
@@ -317,6 +330,13 @@
         {
           "id": "pawnStudio.tools",
           "name": "%view.tools%"
+        }
+      ],
+      "pawnStudioPanel": [
+        {
+          "type": "webview",
+          "id": "pawnStudio.console",
+          "name": "%view.console%"
         }
       ]
     },
@@ -462,6 +482,16 @@
           "command": "pawnStudio.tools.open",
           "when": "view == pawnStudio.server",
           "group": "navigation@99"
+        },
+        {
+          "command": "pawnStudio.console.clear",
+          "when": "view == pawnStudio.console",
+          "group": "navigation@3"
+        },
+        {
+          "command": "pawnStudio.showOutput",
+          "when": "view == pawnStudio.console",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -693,7 +723,7 @@
               "onError",
               "never"
             ],
-            "default": "onError",
+            "default": "always",
             "markdownDescription": "%config.revealOutput%",
             "enumDescriptions": [
               "%config.revealOutput.enum.always%",

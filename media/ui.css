@@ -147,3 +147,4 @@ code, .mono { font-family: var(--vscode-editor-font-family); font-size: var(--vs
 .pos-row:hover { background: var(--vscode-list-hoverBackground); }
 .pos-row.selected { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
 .item .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; margin-right: 6px; border: 1px solid rgba(0,0,0,.4); }
+.tabs .src-btn { align-self: center; margin-left: 8px; padding: 1px 8px; font-size: .85em; }

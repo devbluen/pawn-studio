@@ -180,3 +180,29 @@ export function runCompiler(o: RunOptions): { promise: Promise<RunResult>; kill:
         },
     };
 }
+
+/** Memory summary pawncc prints after a successful build (bytes). */
+export interface AmxSizes {
+    header: number;
+    code: number;
+    data: number;
+    stackHeap: number;
+    /** estimated maximum stack/heap use in bytes; undefined = unknown (recursion) */
+    stackUsed?: number;
+    total: number;
+}
+
+export function parseSizes(output: string): AmxSizes | undefined {
+    const n = (label: string) => {
+        const m = new RegExp(label + String.raw`:\s*(\d+)\s*bytes`, 'i').exec(output);
+        return m ? parseInt(m[1], 10) : undefined;
+    };
+    const header = n('Header size');
+    const code = n('Code size');
+    const data = n('Data size');
+    const stackHeap = n('Stack/heap size');
+    const total = n('Total requirements');
+    if (header === undefined || code === undefined || data === undefined || stackHeap === undefined || total === undefined) return undefined;
+    const used = /estimated max\.? usage[=:]?\s*(\d+)\s*cells\s*\((\d+)\s*bytes\)/i.exec(output);
+    return { header, code, data, stackHeap, stackUsed: used ? parseInt(used[2], 10) : undefined, total };
+}

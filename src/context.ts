@@ -35,9 +35,29 @@ export function rel(p: string): string {
     return vscode.workspace.asRelativePath(p, false);
 }
 
+/** An output channel that also reports what is written to it. */
+function mirror(inner: vscode.OutputChannel, emit: (text: string) => void): vscode.OutputChannel {
+    return {
+        name: inner.name,
+        append: (v: string) => { inner.append(v); emit(v); },
+        appendLine: (v: string) => { inner.appendLine(v); emit(v + '\n'); },
+        replace: (v: string) => inner.replace(v),
+        clear: () => inner.clear(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        show: (a?: any, b?: boolean) => (inner.show as (x?: any, y?: boolean) => void)(a, b),
+        hide: () => inner.hide(),
+        dispose: () => inner.dispose(),
+    } as vscode.OutputChannel;
+}
+
 export class Pawn {
     readonly graph = new IncludeGraph();
-    readonly output = vscode.window.createOutputChannel('Pawn Studio');
+/** The output channel itself: what the extension writes here does not go to the Pawn Studio panel. */
+    readonly rawOutput = vscode.window.createOutputChannel('Pawn Studio');
+    private _onLog = new vscode.EventEmitter<string>();
+    /** Text written to `output` (packages, messages): mirrored in the Pawn Studio panel. */
+    readonly onLog = this._onLog.event;
+    readonly output: vscode.OutputChannel = mirror(this.rawOutput, (s) => this._onLog.fire(s));
     readonly diagnostics = vscode.languages.createDiagnosticCollection('pawncc');
     readonly runtimeDiagnostics = vscode.languages.createDiagnosticCollection('pawn-runtime');
     readonly github: GitHub;
@@ -49,7 +69,7 @@ export class Pawn {
 
     constructor(readonly ctx: vscode.ExtensionContext) {
         this.github = new GitHub(() => this.githubToken(false));
-        ctx.subscriptions.push(this.output, this.diagnostics, this.runtimeDiagnostics, this._onDidChangeProject);
+        ctx.subscriptions.push(this.rawOutput, this._onLog, this.diagnostics, this.runtimeDiagnostics, this._onDidChangeProject);
     }
 
     fireProjectChanged(): void {
