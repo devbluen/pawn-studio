@@ -63,6 +63,12 @@ A mesma aba guarda o log do gerenciador de pacotes e o log do servidor nas sess�
 filtros no topo separam por tipo. A configuração `pawnStudio.revealOutput` escolhe quando a aba abre:
 em toda compilação (padrão), só quando dá erro, ou nunca.
 
+- **🔔 Notificação** e **🔊 Som** (caixinhas no topo da aba): uma notificação na área de trabalho e um som
+  quando a compilação termina, com outro som quando falha. Vários scripts que terminam juntos
+  (*Compilar tudo*) geram uma notificação só.
+- Compilar de novo enquanto uma compilação está rodando cancela a antiga: o cartão dela fica como
+  **cancelado** e só a nova continua.
+
 ![Painel Pawn Studio: duas compilações com o tamanho do .amx, a barra de memória e um aviso](images/console.png)
 
 ## Error lens ao vivo

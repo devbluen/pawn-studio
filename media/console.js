@@ -30,7 +30,17 @@
         chips[id] = $('button', { class: 'chip' + (filter === id ? ' on' : ''), onclick: () => setFilter(id) }, label);
         bar.append(chips[id]);
     }
+    // notification + sound: real settings (pawnStudio.notify.*), toggled right here
+    const toggles = {};
+    const toggle = (key, icon, label, hint) => {
+        const box = $('input', { type: 'checkbox' });
+        box.addEventListener('change', () => vscode.postMessage({ type: 'setting', key, value: box.checked }));
+        toggles[key] = box;
+        return $('label', { class: 'toggle', title: hint }, box, `${icon} ${label}`);
+    };
     bar.append($('span', { class: 'spacer' }),
+        toggle('desktop', '🔔', L.notifyDesktop, L.notifyDesktopHint),
+        toggle('sound', '🔊', L.notifySound, L.notifySoundHint),
         $('button', { class: 'btn', onclick: () => vscode.postMessage({ type: 'command', command: 'pawnStudio.compile' }) }, `▶ ${L.compile}`),
         $('button', { class: 'btn secondary', onclick: () => vscode.postMessage({ type: 'command', command: 'pawnStudio.compileAll' }) }, L.compileAll));
     app.append(bar, list);
@@ -70,14 +80,17 @@
     function compileCard(e) {
         const name = e.entry.split('/').pop();
         const c = $('div', { class: `card ${e.state}` });
-        const icon = e.state === 'ok' ? '✔' : e.state === 'fail' ? '✖' : '⟳';
-        const title = e.state === 'running' ? fmt(L.compiling, e.title.toLowerCase(), name) : fmt(e.state === 'ok' ? L.built : L.failed, `${e.title} ${name}`);
+        const icon = e.state === 'ok' ? '✔' : e.state === 'fail' ? '✖' : e.state === 'cancelled' ? '⊘' : '⟳';
+        const title =
+            e.state === 'running' ? fmt(L.compiling, e.title.toLowerCase(), name)
+            : e.state === 'cancelled' ? fmt(L.cancelled, `${e.title} ${name}`)
+            : fmt(e.state === 'ok' ? L.built : L.failed, `${e.title} ${name}`);
         c.append($('div', { class: 'head' },
             $('span', { class: 'icon' }, icon),
             $('span', { class: 'title' }, title),
             $('span', { class: 'muted' }, e.reason),
             $('span', { class: 'time' }, `${clock(e.at)}${e.durationMs !== undefined ? ' · ' + secs(e.durationMs) : ''}`)));
-        if (e.state === 'running') return c;
+        if (e.state === 'running' || e.state === 'cancelled') return c;
 
         const stats = $('div', { class: 'stats' });
         if (e.amxSize !== undefined) {
@@ -136,6 +149,9 @@
             order.length = 0;
             for (const e of m.entries) { entries.set(e.id, e); order.push(e.id); }
             render();
+        } else if (m.type === 'settings') {
+            toggles.desktop.checked = !!m.desktop;
+            toggles.sound.checked = !!m.sound;
         } else if (m.type === 'upsert') {
             if (!entries.has(m.entry.id)) order.push(m.entry.id);
             entries.set(m.entry.id, m.entry);

@@ -689,5 +689,15 @@
   "custom · {0}": "personalizado · {0}",
   "Using the install settings of pawn.json from the main branch ({0} has none yet)": "Usando as configurações de instalação do pawn.json da branch principal ({0} ainda não tem)",
   "Kept the existing {0} in {1}: it is different from the package's and was not installed by Pawn Studio (delete it to use the package's)": "Mantido o {0} que já existia em {1}: ele é diferente do pacote e não foi instalado pelo Pawn Studio (apague-o para usar o do pacote)",
-  "{0} is marked as a pre-release on GitHub (it still installs when its tag is the newest version)": "{0} está marcada como pre-release no GitHub (ainda instala quando a tag dela é a versão mais nova)"
+  "{0} is marked as a pre-release on GitHub (it still installs when its tag is the newest version)": "{0} está marcada como pre-release no GitHub (ainda instala quando a tag dela é a versão mais nova)",
+  "Cancelled: a new compilation started": "Cancelada: uma nova compilação começou",
+  "{0} cancelled: a new compilation started": "{0} cancelado: uma nova compilação começou",
+  "Notification": "Notificação",
+  "Desktop notification when a compilation ends": "Notificação na área de trabalho quando a compilação termina",
+  "Sound": "Som",
+  "Play a sound when a compilation ends (a different one when it fails)": "Tocar um som quando a compilação termina (outro quando falha)",
+  "{0} of {1} failed": "{0} de {1} falharam",
+  "{0} scripts compiled": "{0} scripts compilados",
+  "Pawn Studio": "Pawn Studio",
+  "This is how a finished compilation is announced.": "É assim que o fim de uma compilação é avisado."
 }

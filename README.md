@@ -63,6 +63,12 @@ The same tab also keeps the package manager log and the server log of debug sess
 filter by kind. `pawnStudio.revealOutput` chooses when the tab opens: on every compilation (default),
 only on errors, or never.
 
+- **🔔 Notification** and **🔊 Sound** (checkboxes at the top of the tab): a desktop notification and a
+  sound when a compilation ends, a different sound when it fails. Several scripts that finish together
+  (*Compile all*) make one notification.
+- Compiling again while a compilation is running cancels the old one: its card shows **cancelled** and
+  only the new one runs.
+
 ![Pawn Studio panel: two compilations with the .amx size, the memory bar and a warning](images/console.png)
 
 ## Live error lens

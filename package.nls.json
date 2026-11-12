@@ -101,5 +101,7 @@
   "config.server.compileBeforeStart.always": "Always compile",
   "config.server.compileBeforeStart.ask": "Ask every time",
   "config.server.compileBeforeStart.never": "Never (only when there is no .amx yet)",
-  "config.packages.copyIncludes": "Also copy the `.inc` files of installed packages to the server's `pawno/include` (SA-MP) or `qawno/include` (open.mp), so pawno/qawno and other tools find them. Files already there that Pawn Studio did not install are never overwritten."
+  "config.packages.copyIncludes": "Also copy the `.inc` files of installed packages to the server's `pawno/include` (SA-MP) or `qawno/include` (open.mp), so pawno/qawno and other tools find them. Files already there that Pawn Studio did not install are never overwritten.",
+  "config.notify.desktop": "Desktop notification when a compilation ends (also a checkbox in the **Pawn Studio** panel).",
+  "config.notify.sound": "Play a sound when a compilation ends, a different one when it fails (also a checkbox in the **Pawn Studio** panel)."
 }

@@ -66,12 +66,15 @@ export class Builder {
     readonly onDidCompile = this._onDidCompile.event;
     private _onDidStart = new vscode.EventEmitter<Target>();
     readonly onDidStart = this._onDidStart.event;
+    private _onDidCancel = new vscode.EventEmitter<Target>();
+    /** A real compilation was stopped because another one started. */
+    readonly onDidCancel = this._onDidCancel.event;
     private _onDidStartJob = new vscode.EventEmitter<CompileJobInfo>();
     /** A real (not background) compilation started: what runs and how. */
     readonly onDidStartJob = this._onDidStartJob.event;
 
     constructor(private pawn: Pawn) {
-        pawn.ctx.subscriptions.push(this._onDidCompile, this._onDidStart, this._onDidStartJob);
+        pawn.ctx.subscriptions.push(this._onDidCompile, this._onDidStart, this._onDidStartJob, this._onDidCancel);
     }
 
     get last(): CompileResult | undefined {
@@ -318,7 +321,13 @@ export class Builder {
         } finally {
             if (this.running === handle) this.running = undefined;
         }
-        if (res.killed) return undefined;
+        if (res.killed) {
+            if (!background) {
+                log.appendLine(`⊘ ${t('Cancelled: a new compilation started')}`);
+                this._onDidCancel.fire(target);
+            }
+            return undefined;
+        }
 
         if (!background) log.append(res.output.endsWith('\n') ? res.output : res.output + '\n');
         const unmap = opts.shadow?.unmap ?? ((p: string) => p);

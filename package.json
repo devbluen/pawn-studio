@@ -2,7 +2,7 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.8.4",
+  "version": "1.9.0",
   "publisher": "devbluen",
   "license": "MIT",
   "repository": {
@@ -763,6 +763,16 @@
               "%config.server.compileBeforeStart.ask%",
               "%config.server.compileBeforeStart.never%"
             ]
+          },
+          "pawnStudio.notify.desktop": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%config.notify.desktop%"
+          },
+          "pawnStudio.notify.sound": {
+            "type": "boolean",
+            "default": false,
+            "markdownDescription": "%config.notify.sound%"
           }
         }
       },

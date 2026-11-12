@@ -68,3 +68,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9em; user-se
 .lines .warning { color: var(--warn); }
 .lines .info { color: var(--info); }
 .lines .dim { color: var(--muted); }
+.bar .toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: .92em; cursor: pointer; user-select: none; margin-right: 6px; }
+.bar .toggle input { margin: 0; cursor: pointer; }
+.card.cancelled { border-left-color: var(--muted); opacity: .75; }
+.cancelled .head .icon { color: var(--muted); }

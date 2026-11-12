@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { Builder, CompileJobInfo, CompileResult, kindLabel } from './build';
 import { cfg, Pawn, rel } from './context';
+import { notify } from './notify';
 import { t } from './i18n';
 
 const MAX_ENTRIES = 150;
@@ -26,7 +27,7 @@ type Entry =
           kind: 'compile';
           id: number;
           at: number;
-          state: 'running' | 'ok' | 'fail';
+          state: 'running' | 'ok' | 'fail' | 'cancelled';
           title: string;
           entry: string;
           entryAbs: string;
@@ -69,6 +70,8 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             vscode.window.registerWebviewViewProvider(ConsoleView.id, this, { webviewOptions: { retainContextWhenHidden: true } }),
             builder.onDidStartJob((j) => this.started(j)),
             builder.onDidCompile((r) => !r.background && this.finished(r)),
+            builder.onDidCancel((t) => this.cancelled(t.entry)),
+            vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration('pawnStudio.notify') && this.postSettings()),
             pawn.onLog((s) => this.log(s)),
             vscode.debug.registerDebugAdapterTrackerFactory('pawn', { createDebugAdapterTracker: (s) => this.tracker(s) }),
         );
@@ -80,7 +83,18 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
 
     // ───────────────────────── sources ─────────────────────────
 
+    /** The compilation that was running stops showing "Compiling…" when a new one replaces it. */
+    private cancelled(entryAbs?: string): void {
+        const e = this.running;
+        if (!e || (entryAbs && e.entryAbs !== entryAbs) || e.state !== 'running') return;
+        e.state = 'cancelled';
+        e.durationMs = Date.now() - e.at;
+        this.running = undefined;
+        this.update(e);
+    }
+
     private started(j: CompileJobInfo): void {
+        this.cancelled(); // anything still marked as running was replaced by this one
         this.logEntry = undefined;
         const e: Extract<Entry, { kind: 'compile' }> = {
             kind: 'compile',
@@ -124,6 +138,45 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
         e.diags = r.diags.slice(0, 200).map((d) => ({ file: rel(d.file), abs: d.file, line: d.line, severity: d.severity, code: d.code, message: d.message }));
         this.update(e);
         if (!r.ok && cfg().get<string>('revealOutput') !== 'never') this.reveal();
+        this.queueNotification(e);
+    }
+
+    // ───────────────────────── notification + sound ─────────────────────────
+
+    private pendingNotes: Array<Extract<Entry, { kind: 'compile' }>> = [];
+    private noteTimer: NodeJS.Timeout | undefined;
+
+    /** Builds that end together (compile all) make one notification. */
+    private queueNotification(e: Extract<Entry, { kind: 'compile' }>): void {
+        const desktop = cfg().get<boolean>('notify.desktop', false);
+        const sound = cfg().get<boolean>('notify.sound', false);
+        if (!desktop && !sound) return;
+        this.pendingNotes.push(e);
+        clearTimeout(this.noteTimer);
+        this.noteTimer = setTimeout(() => {
+            const list = this.pendingNotes;
+            this.pendingNotes = [];
+            const failed = list.filter((x) => x.state === 'fail');
+            const size = (n?: number) => (n === undefined ? '' : n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(2)} MB` : `${(n / 1024).toFixed(1)} KB`);
+            let title: string;
+            let body: string;
+            if (list.length === 1) {
+                const x = list[0];
+                const name = x.entry.split('/').pop()!;
+                title = x.state === 'ok' ? t('{0} compiled', name) : t('{0} failed', name);
+                body = x.state === 'ok'
+                    ? [x.amx.split('/').pop(), size(x.amxSize), `${((x.durationMs ?? 0) / 1000).toFixed(2)}s`, x.warnings ? t('{0} warning(s)', x.warnings) : ''].filter(Boolean).join(' · ')
+                    : [t('{0} error(s)', x.errors), x.diags[0] ? `${x.diags[0].file}:${x.diags[0].line} ${x.diags[0].message}` : ''].filter(Boolean).join(' · ');
+            } else {
+                title = failed.length ? t('{0} of {1} failed', failed.length, list.length) : t('{0} scripts compiled', list.length);
+                body = list.map((x) => `${x.state === 'ok' ? '✔' : '✖'} ${x.entry.split('/').pop()}`).join('  ');
+            }
+            notify(!failed.length, title, body, { desktop, sound });
+        }, 700);
+    }
+
+    private postSettings(): void {
+        void this.view?.webview.postMessage({ type: 'settings', desktop: cfg().get<boolean>('notify.desktop', false), sound: cfg().get<boolean>('notify.sound', false) });
     }
 
     /** Package manager and other messages: grouped by their "[time] title" header line. */
@@ -169,7 +222,8 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
                     const parts = (pending + m.body.output).split(/\r?\n/);
                     pending = parts.pop() ?? '';
                     for (const text of parts) {
-                        const level = /run time error|\[debug\]\s*#\d|error|fatal|crash/i.test(text) ? 'error' : /warning/i.test(text) ? 'warning' : m.body.category === 'important' ? 'info' : '';
+                        // whole words: "crashdetect.dll" in "Loading plugin" is not an error
+                        const level = /run time error|\[debug\]\s*#\d|\berror\b|\bfatal\b|\bcrash(ed)?\b/i.test(text) ? 'error' : /\bwarning\b/i.test(text) ? 'warning' : m.body.category === 'important' ? 'info' : '';
                         e.lines.push({ text, level });
                     }
                     if (e.lines.length > MAX_LINES) e.lines.splice(0, e.lines.length - MAX_LINES);
@@ -235,11 +289,19 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
         view.onDidDispose(() => (this.view = undefined), undefined, this.subs);
     }
 
-    private async onMessage(m: { type: string; file?: string; line?: number; text?: string; command?: string }): Promise<void> {
+    private async onMessage(m: { type: string; file?: string; line?: number; text?: string; command?: string; key?: string; value?: boolean }): Promise<void> {
         switch (m.type) {
             case 'ready':
                 void this.view?.webview.postMessage({ type: 'reset', entries: this.entries });
+                this.postSettings();
                 return;
+            case 'setting': {
+                const key = m.key === 'sound' ? 'notify.sound' : 'notify.desktop';
+                await cfg().update(key, !!m.value, vscode.ConfigurationTarget.Global);
+                // turning one on gives a sample right away
+                if (m.value) notify(true, t('Pawn Studio'), t('This is how a finished compilation is announced.'), { desktop: m.key !== 'sound', sound: m.key === 'sound' });
+                return;
+            }
             case 'open':
                 if (m.file && fs.existsSync(m.file)) {
                     const line = Math.max(0, (m.line ?? 1) - 1);
@@ -273,6 +335,11 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             compiling: t('Compiling {0} {1}…'),
             built: t('{0} compiled'),
             failed: t('{0} failed'),
+            cancelled: t('{0} cancelled: a new compilation started'),
+            notifyDesktop: t('Notification'),
+            notifyDesktopHint: t('Desktop notification when a compilation ends'),
+            notifySound: t('Sound'),
+            notifySoundHint: t('Play a sound when a compilation ends (a different one when it fails)'),
             errors: t('{0} error(s)'),
             warnings: t('{0} warning(s)'),
             noIssues: t('no errors or warnings'),
