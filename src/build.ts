@@ -37,9 +37,13 @@ export interface CompileResult {
     /** automatic check on save (does not produce the real .amx) */
     background: boolean;
     exitCode: number | null;
+    /** id of the real compilation (same as in onDidStartJob); 0 for background checks */
+    jobId: number;
 }
 
 export interface CompileJobInfo {
+    /** unique per compilation: cancel / finish events carry the same id */
+    id: number;
     target: Target;
     compiler: string;
     commandLine: string;
@@ -66,7 +70,8 @@ export class Builder {
     readonly onDidCompile = this._onDidCompile.event;
     private _onDidStart = new vscode.EventEmitter<Target>();
     readonly onDidStart = this._onDidStart.event;
-    private _onDidCancel = new vscode.EventEmitter<Target>();
+    private jobSeq = 0;
+    private _onDidCancel = new vscode.EventEmitter<{ target: Target; jobId: number }>();
     /** A real compilation was stopped because another one started. */
     readonly onDidCancel = this._onDidCancel.event;
     private _onDidStartJob = new vscode.EventEmitter<CompileJobInfo>();
@@ -298,13 +303,14 @@ export class Builder {
         this.running?.kill();
         if (!background) this._onDidStart.fire(target);
         const job = runCompiler({ compiler, entry: compileEntry, output: outFile, includeDirs, args });
+        const jobId = background ? 0 : ++this.jobSeq;
         const handle = { kill: job.kill, background };
         this.running = handle;
 
         // the compile log goes to the output channel only: the Pawn Studio panel shows it as a card
         const log = pawn.rawOutput;
         if (!background) {
-            this._onDidStartJob.fire({ target, compiler, commandLine: job.commandLine, includeDirs, output: outFile });
+            this._onDidStartJob.fire({ id: jobId, target, compiler, commandLine: job.commandLine, includeDirs, output: outFile });
             log.appendLine('');
             log.appendLine(`[${new Date().toLocaleTimeString()}] ${t('Compiling {0} {1}  ({2})', kindLabel(target.kind).toLowerCase(), rel(target.entry), target.reason)}`);
             log.appendLine(`> ${job.commandLine}`);
@@ -324,7 +330,7 @@ export class Builder {
         if (res.killed) {
             if (!background) {
                 log.appendLine(`⊘ ${t('Cancelled: a new compilation started')}`);
-                this._onDidCancel.fire(target);
+                this._onDidCancel.fire({ target, jobId });
             }
             return undefined;
         }
@@ -352,6 +358,7 @@ export class Builder {
         if (background) fs.rmSync(outFile, { force: true });
 
         const result: CompileResult = {
+            jobId,
             target,
             ok,
             errors,

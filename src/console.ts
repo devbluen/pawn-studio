@@ -26,6 +26,7 @@ type Entry =
     | {
           kind: 'compile';
           id: number;
+          jobId: number;
           at: number;
           state: 'running' | 'ok' | 'fail' | 'cancelled';
           title: string;
@@ -70,7 +71,7 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             vscode.window.registerWebviewViewProvider(ConsoleView.id, this, { webviewOptions: { retainContextWhenHidden: true } }),
             builder.onDidStartJob((j) => this.started(j)),
             builder.onDidCompile((r) => !r.background && this.finished(r)),
-            builder.onDidCancel((t) => this.cancelled(t.entry)),
+            builder.onDidCancel((c) => this.cancelled(c.jobId)),
             vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration('pawnStudio.notify') && this.postSettings()),
             pawn.onLog((s) => this.log(s)),
             vscode.debug.registerDebugAdapterTrackerFactory('pawn', { createDebugAdapterTracker: (s) => this.tracker(s) }),
@@ -84,21 +85,22 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
     // ───────────────────────── sources ─────────────────────────
 
     /** The compilation that was running stops showing "Compiling…" when a new one replaces it. */
-    private cancelled(entryAbs?: string): void {
-        const e = this.running;
-        if (!e || (entryAbs && e.entryAbs !== entryAbs) || e.state !== 'running') return;
+    /** The card of that compilation (by id) stops showing "Compiling…": a new one replaced it. */
+    private cancelled(jobId: number): void {
+        const e = this.entries.find((x): x is Extract<Entry, { kind: 'compile' }> => x.kind === 'compile' && x.jobId === jobId);
+        if (!e || e.state !== 'running') return;
         e.state = 'cancelled';
         e.durationMs = Date.now() - e.at;
-        this.running = undefined;
+        if (this.running === e) this.running = undefined;
         this.update(e);
     }
 
     private started(j: CompileJobInfo): void {
-        this.cancelled(); // anything still marked as running was replaced by this one
         this.logEntry = undefined;
         const e: Extract<Entry, { kind: 'compile' }> = {
             kind: 'compile',
             id: this.nextId++,
+            jobId: j.id,
             at: Date.now(),
             state: 'running',
             title: kindLabel(j.target.kind),
@@ -121,9 +123,9 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
     }
 
     private finished(r: CompileResult): void {
-        const e = this.running && this.running.entryAbs === r.target.entry ? this.running : undefined;
+        const e = this.entries.find((x): x is Extract<Entry, { kind: 'compile' }> => x.kind === 'compile' && x.jobId === r.jobId);
         if (!e) return;
-        this.running = undefined;
+        if (this.running === e) this.running = undefined;
         e.state = r.ok ? 'ok' : 'fail';
         e.durationMs = r.durationMs;
         e.errors = r.errors;
@@ -337,6 +339,8 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             failed: t('{0} failed'),
             cancelled: t('{0} cancelled: a new compilation started'),
             notifyDesktop: t('Notification'),
+            on: t('on'),
+            off: t('off'),
             notifyDesktopHint: t('Desktop notification when a compilation ends'),
             notifySound: t('Sound'),
             notifySoundHint: t('Play a sound when a compilation ends (a different one when it fails)'),

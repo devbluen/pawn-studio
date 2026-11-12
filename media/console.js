@@ -32,15 +32,30 @@
     }
     // notification + sound: real settings (pawnStudio.notify.*), toggled right here
     const toggles = {};
+    const ICONS = {
+        bell: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5v2.6L2.2 11a.6.6 0 0 0 .5.9h10.6a.6.6 0 0 0 .5-.9L12.5 8.6V6A4.5 4.5 0 0 0 8 1.5Zm-1.8 11.4a1.8 1.8 0 0 0 3.6 0Z"/></svg>',
+        sound: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7.4 2.6 4.3 5.3H2.3a.8.8 0 0 0-.8.8v3.8c0 .4.4.8.8.8h2l3.1 2.7c.4.3 1 0 1-.5V3.1c0-.5-.6-.8-1-.5Z"/><path fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" d="M10.6 5.6a3.4 3.4 0 0 1 0 4.8M12.4 3.9a5.8 5.8 0 0 1 0 8.2"/></svg>',
+    };
+    // a switch: the icon, the name and a small track that slides on/off
     const toggle = (key, icon, label, hint) => {
-        const box = $('input', { type: 'checkbox' });
-        box.addEventListener('change', () => vscode.postMessage({ type: 'setting', key, value: box.checked }));
-        toggles[key] = box;
-        return $('label', { class: 'toggle', title: hint }, box, `${icon} ${label}`);
+        const btn = $('button', { class: 'switch', role: 'switch', 'aria-checked': 'false', title: hint });
+        btn.innerHTML = `${ICONS[icon]}<span class="switch-label"></span><span class="track"><span class="knob"></span></span>`;
+        btn.querySelector('.switch-label').textContent = label;
+        const set = (on) => {
+            btn.classList.toggle('on', on);
+            btn.setAttribute('aria-checked', String(on));
+            btn.title = `${hint} (${on ? L.on : L.off})`;
+        };
+        btn.addEventListener('click', () => {
+            const on = !btn.classList.contains('on');
+            set(on);
+            vscode.postMessage({ type: 'setting', key, value: on });
+        });
+        toggles[key] = { set };
+        return btn;
     };
     bar.append($('span', { class: 'spacer' }),
-        toggle('desktop', '🔔', L.notifyDesktop, L.notifyDesktopHint),
-        toggle('sound', '🔊', L.notifySound, L.notifySoundHint),
+        $('span', { class: 'switches' }, toggle('desktop', 'bell', L.notifyDesktop, L.notifyDesktopHint), toggle('sound', 'sound', L.notifySound, L.notifySoundHint)),
         $('button', { class: 'btn', onclick: () => vscode.postMessage({ type: 'command', command: 'pawnStudio.compile' }) }, `▶ ${L.compile}`),
         $('button', { class: 'btn secondary', onclick: () => vscode.postMessage({ type: 'command', command: 'pawnStudio.compileAll' }) }, L.compileAll));
     app.append(bar, list);
@@ -150,8 +165,8 @@
             for (const e of m.entries) { entries.set(e.id, e); order.push(e.id); }
             render();
         } else if (m.type === 'settings') {
-            toggles.desktop.checked = !!m.desktop;
-            toggles.sound.checked = !!m.sound;
+            toggles.desktop.set(!!m.desktop);
+            toggles.sound.set(!!m.sound);
         } else if (m.type === 'upsert') {
             if (!entries.has(m.entry.id)) order.push(m.entry.id);
             entries.set(m.entry.id, m.entry);

@@ -699,5 +699,7 @@
   "{0} of {1} failed": "{0} de {1} falharam",
   "{0} scripts compiled": "{0} scripts compilados",
   "Pawn Studio": "Pawn Studio",
-  "This is how a finished compilation is announced.": "É assim que o fim de uma compilação é avisado."
+  "This is how a finished compilation is announced.": "É assim que o fim de uma compilação é avisado.",
+  "on": "ligado",
+  "off": "desligado"
 }

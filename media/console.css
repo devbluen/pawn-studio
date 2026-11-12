@@ -68,7 +68,16 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9em; user-se
 .lines .warning { color: var(--warn); }
 .lines .info { color: var(--info); }
 .lines .dim { color: var(--muted); }
-.bar .toggle { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: .92em; cursor: pointer; user-select: none; margin-right: 6px; }
-.bar .toggle input { margin: 0; cursor: pointer; }
 .card.cancelled { border-left-color: var(--muted); opacity: .75; }
 .cancelled .head .icon { color: var(--muted); }
+.switches { display: inline-flex; gap: 4px; margin-right: 8px; }
+.switch { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 7px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--muted); font: inherit; font-size: .9em; cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.switch:hover { color: var(--vscode-foreground); background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.12)); }
+.switch:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+.switch svg { flex: none; }
+.switch .track { position: relative; width: 24px; height: 13px; border-radius: 7px; background: var(--vscode-input-background, rgba(127,127,127,.25)); border: 1px solid var(--border); transition: background .15s, border-color .15s; flex: none; }
+.switch .knob { position: absolute; top: 1px; left: 1px; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+.switch.on { color: var(--vscode-foreground); border-color: var(--vscode-button-background); }
+.switch.on svg { color: var(--vscode-button-background); }
+.switch.on .track { background: var(--vscode-button-background); border-color: var(--vscode-button-background); }
+.switch.on .knob { transform: translateX(11px); background: var(--vscode-button-foreground, #fff); }
