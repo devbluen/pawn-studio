@@ -583,7 +583,7 @@
             },
             {
               "match": ".+",
-              "name": "entity.name.type.tag.pawn"
+              "name": "storage.type.tag.pawn"
             }
           ]
         },
@@ -662,7 +662,7 @@
             },
             {
               "match": ".+",
-              "name": "entity.name.type.tag.pawn"
+              "name": "storage.type.tag.pawn"
             }
           ]
         },
@@ -764,7 +764,7 @@
                 },
                 {
                   "match": ".+",
-                  "name": "entity.name.type.tag.pawn"
+                  "name": "storage.type.tag.pawn"
                 }
               ]
             },
@@ -823,7 +823,7 @@
                     },
                     {
                       "match": ".+",
-                      "name": "entity.name.type.tag.pawn"
+                      "name": "storage.type.tag.pawn"
                     }
                   ]
                 },
@@ -870,7 +870,7 @@
                 },
                 {
                   "match": ".+",
-                  "name": "entity.name.type.tag.pawn"
+                  "name": "storage.type.tag.pawn"
                 }
               ]
             },
@@ -1057,15 +1057,15 @@
     },
     "tags-builtin": {
       "match": "(?<![\\w@])(?:Float|bool|File|Text|PlayerText|Text3D|PlayerText3D|PlayerText3D|DB|DBResult|DBStatement|Menu|Fixed|Cache|MySQL|ORM|Timer|Iterator|Group|Language|Style|DynamicObject|string|STREAMER_TAG_[A-Z_0-9]+|_):(?!:)",
-      "name": "support.type.tag.builtin.pawn"
+      "name": "storage.type.tag.builtin.pawn"
     },
     "tags-multi": {
       "match": "\\{\\s*[A-Za-z_@][\\w@]*(?:\\s*,\\s*[A-Za-z_@][\\w@]*)*\\s*\\}:(?!:)",
-      "name": "entity.name.type.tag.multi.pawn"
+      "name": "storage.type.tag.multi.pawn"
     },
     "tags-generic": {
       "match": "(?<![\\w@])(?!(?:if|else|for|while|do|switch|case|default|break|continue|return|goto|sleep|exit|state|new|static|const|stock|public|native|forward|enum|operator|sizeof|tagof|char|defined|foreach|using|yield)(?![\\w@]))([A-Za-z_@][\\w@]*)(:)(?![:\\s])(?=[A-Za-z_@(\\[{\\-0-9'\"!.%~&])",
-      "name": "entity.name.type.tag.pawn"
+      "name": "storage.type.tag.pawn"
     },
     "keywords": {
       "patterns": [
@@ -1385,7 +1385,7 @@
         },
         {
           "match": "(?<![\\w@])[A-Za-z_@][\\w@]*:(?!:)",
-          "name": "entity.name.type.tag.pawn"
+          "name": "storage.type.tag.pawn"
         },
         {
           "match": "(?<![\\w@])[A-Za-z_@][\\w@]*",

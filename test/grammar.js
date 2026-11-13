@@ -178,16 +178,16 @@ async function main() {
   expect('enum E_PLAYER_DATA', 'E_PLAYER_DATA', 'entity.name.type.enum');
   expect('E_PLAYER_NAME[MAX', 'E_PLAYER_NAME', 'variable.other.enummember');
   expect('E_PLAYER_NAME[MAX', 'MAX_PLAYER_NAME', 'variable.other.constant');
-  expect('Float:E_PLAYER_HEALTH', 'Float:', 'support.type.tag');
+  expect('Float:E_PLAYER_HEALTH', 'Float:', 'storage.type.tag');
   expect('Float:E_PLAYER_HEALTH', 'E_PLAYER_HEALTH', 'variable.other.enummember');
-  expect('bool:E_PLAYER_LOGGED', 'bool:', 'support.type.tag');
+  expect('bool:E_PLAYER_LOGGED', 'bool:', 'storage.type.tag');
 
   // declarations / tags
   expect('new PlayerData', 'new', 'storage.type');
   expect('new PlayerData', 'MAX_PLAYERS', 'variable.other.constant');
-  expect('new Text:gClock', 'Text:', 'support.type.tag');
+  expect('new Text:gClock', 'Text:', 'storage.type.tag');
   expect('forward Float:GetDistance', 'forward', 'storage.modifier');
-  expect('forward Float:GetDistance', 'Float:', 'support.type.tag');
+  expect('forward Float:GetDistance', 'Float:', 'storage.type.tag');
   expect('forward Float:GetDistance', 'GetDistance', 'entity.name.function');
   expect('native IsValidVehicle', 'IsValidVehicle', 'entity.name.function');
   expect('main()', 'main', 'entity.name.function');
@@ -223,9 +223,9 @@ async function main() {
   expect('? 1 : 0', '0', 'constant.numeric.decimal');
 
   // generic tags vs. compact ternary
-  expect('new MyTag:tagged', 'MyTag:', 'entity.name.type.tag');
-  expect('new MyTag:tagged', 'MyTag:', 'entity.name.type.tag', 1);
-  notScope('new MyTag:tagged', 'hp', 'entity.name.type.tag');
+  expect('new MyTag:tagged', 'MyTag:', 'storage.type.tag');
+  expect('new MyTag:tagged', 'MyTag:', 'storage.type.tag', 1);
+  notScope('new MyTag:tagged', 'hp', 'storage.type.tag');
   expect('new MyTag:tagged', ':', 'keyword.operator.ternary');
 
   // numbers
@@ -234,12 +234,12 @@ async function main() {
   expect('new Float:hp', '0b1010', 'constant.numeric.binary');
   expect('new Float:hp', '1_000_000', 'constant.numeric.decimal');
   expect('new Float:hp', '1.0e5', 'constant.numeric.float');
-  expect('new Float:hp', 'Float:', 'support.type.tag');
+  expect('new Float:hp', 'Float:', 'storage.type.tag');
 
   // switch / case / default
   expect('case 0: SendClientMessage', 'case', 'keyword.control');
   expect('case 0: SendClientMessage', ':', 'punctuation.separator.case');
-  notScope('case 0: SendClientMessage', '0', 'entity.name.type.tag');
+  notScope('case 0: SendClientMessage', '0', 'storage.type.tag');
   expect('case 0: SendClientMessage', 'SendClientMessage', 'support.function');
   expect('case 0: SendClientMessage', 'INVALID_PLAYER_ID', 'variable.other.constant');
   expect('case 1, 2: return', 'return', 'keyword.control');
@@ -252,7 +252,7 @@ async function main() {
   expect('hook OnPlayerSpawn', 'OnPlayerSpawn', 'entity.name.function.callback');
   expect('foreach (new i : Player)', 'foreach', 'keyword.other');
   expect('foreach (new i : Player)', 'new', 'storage.type');
-  notScope('foreach (new i : Player)', 'i', 'entity.name.type.tag');
+  notScope('foreach (new i : Player)', 'i', 'storage.type.tag');
   expect('foreach (new i : Player)', 'Player', 'variable.other');
 
   expect('timer RespawnTimer', 'timer', 'storage.modifier.timer');
@@ -269,7 +269,7 @@ async function main() {
   // parameters of declarations
   expect('public OnPlayerConnect', 'playerid', 'variable.parameter');
   expect('stock Float:GetDistance', 'x', 'variable.parameter');
-  expect('stock Float:GetDistance', 'Float:', 'support.type.tag', 1);
+  expect('stock Float:GetDistance', 'Float:', 'storage.type.tag', 1);
   expect('timer RespawnTimer', 'playerid', 'variable.parameter');
   expect('CMD:ajuda', 'params', 'variable.parameter');
   expect('stock Defaults(', 'amount', 'variable.parameter');
@@ -306,7 +306,7 @@ async function main() {
   expect('PhoneAlert:Notas(', 'button', 'variable.parameter');
   notScope('return Inventario:Abrir', 'Inventario:', 'storage.modifier.prefix'); // a call, not a definition
   notScope('return Inventario:Abrir', 'playerid', 'variable.parameter');
-  expect('stock Float:GetDistance', 'Float:', 'support.type.tag');
+  expect('stock Float:GetDistance', 'Float:', 'storage.type.tag');
 
   // the last line must have closed every scope
   assert.strictEqual(stack.depth, 1, 'rule stack not empty at end of sample (unclosed scope)');
