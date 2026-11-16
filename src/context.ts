@@ -9,7 +9,7 @@ import { autoIncludeDirs, findCompiler } from './compiler';
 import { IncludeGraph } from './includeGraph';
 import { GitHub } from './packages/github';
 import { PackageManager, STDLIBS } from './packages/manager';
-import { findServer, MANIFEST, readManifest, ServerInfo } from './packages/manifest';
+import { CompileProfile, findServer, MANIFEST, PawnJson as PawnJsonType, readManifest, ServerInfo } from './packages/manifest';
 
 export const PAWN_EXT = /\.(pwn|inc|p)$/i;
 export const SECTION = 'pawnStudio';
@@ -66,10 +66,15 @@ export class Pawn {
     private _onDidChangeProject = new vscode.EventEmitter<void>();
     /** pawn.json / pawn-lock.json / settings changed. */
     readonly onDidChangeProject = this._onDidChangeProject.event;
+    private _onDidChangeProfile = new vscode.EventEmitter<void>();
+    /** The active compile profile changed. */
+    readonly onDidChangeProfile = this._onDidChangeProfile.event;
+    /** profile for the next compilation only ("Compile with profile…") */
+    profileOverride: string | undefined;
 
     constructor(readonly ctx: vscode.ExtensionContext) {
         this.github = new GitHub(() => this.githubToken(false));
-        ctx.subscriptions.push(this.rawOutput, this._onLog, this.diagnostics, this.runtimeDiagnostics, this._onDidChangeProject);
+        ctx.subscriptions.push(this._onDidChangeProfile, this.rawOutput, this._onLog, this.diagnostics, this.runtimeDiagnostics, this._onDidChangeProject);
     }
 
     fireProjectChanged(): void {
@@ -108,20 +113,63 @@ export class Pawn {
         return findServer(start ?? '', explicit ? expandPath(explicit) : undefined);
     }
 
-    /** "compiler" from the project's pawn.json, with paths resolved against the project folder. */
-    projectCompiler(): { path?: string; args?: string[]; includes: string[] } {
+    private rawCompiler(): NonNullable<PawnJsonType['compiler']> | undefined {
         const root = this.projectRoot();
-        let c: { path?: unknown; args?: unknown; includes?: unknown } | undefined;
         try {
-            c = root ? (readManifest(root)?.compiler as typeof c) : undefined;
+            return root ? readManifest(root)?.compiler : undefined;
         } catch {
-            c = undefined; // a broken pawn.json is reported by the Packages view
+            return undefined;
         }
+    }
+
+    /** Compile profiles of pawn.json (compiler.profiles), by name. */
+    profiles(): Record<string, CompileProfile> {
+        const p = this.rawCompiler()?.profiles;
+        return p && typeof p === 'object' ? p : {};
+    }
+
+    /** The profile compilations use: the one chosen in the editor, else compiler.profile, else the first. */
+    activeProfile(): string | undefined {
+        const names = Object.keys(this.profiles());
+        if (!names.length) return undefined;
+        if (this.profileOverride && names.includes(this.profileOverride)) return this.profileOverride;
+        const chosen = this.ctx.workspaceState.get<string>('pawnStudio.profile');
+        if (chosen && names.includes(chosen)) return chosen;
+        const def = this.rawCompiler()?.profile;
+        return def && names.includes(def) ? def : names[0];
+    }
+
+    async setActiveProfile(name: string): Promise<void> {
+        await this.ctx.workspaceState.update('pawnStudio.profile', name);
+        this._onDidChangeProfile.fire();
+    }
+
+    /** "compiler" from the project's pawn.json, with paths resolved against the project folder. */
+    projectCompiler(): { path?: string; args?: string[]; includes: string[]; outputDir?: string; profile?: string } {
+        const root = this.projectRoot();
+        const c = this.rawCompiler() as { path?: unknown; args?: unknown; includes?: unknown } | undefined;
         const abs = (p: string) => (path.isAbsolute(p) ? p : path.resolve(root!, p));
-        return {
+        const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x) : []);
+        const base = {
             path: typeof c?.path === 'string' && c.path ? abs(c.path) : undefined,
             args: Array.isArray(c?.args) ? c!.args.map(String) : undefined,
-            includes: Array.isArray(c?.includes) ? c!.includes.filter((x): x is string => typeof x === 'string' && !!x).map(abs) : [],
+            includes: strings(c?.includes).map(abs),
+        };
+        // the active profile changes args / defines / includes / output folder
+        const name = this.activeProfile();
+        const p = name ? this.profiles()[name] : undefined;
+        if (!p) return base;
+        let args = Array.isArray(p.args) ? p.args.map(String) : base.args;
+        const defines = Object.entries(p.defines ?? {})
+            .filter(([, v]) => v !== false && v !== undefined && v !== null)
+            .map(([k, v]) => (v === true ? `${k}=1` : `${k}=${v}`));
+        if (defines.length) args = [...(args ?? cfg().get<string[]>('args') ?? []), ...defines];
+        return {
+            ...base,
+            args,
+            includes: [...base.includes, ...strings(p.includes).map(abs)],
+            outputDir: typeof p.outputDir === 'string' && p.outputDir ? abs(p.outputDir) : undefined,
+            profile: name,
         };
     }
 

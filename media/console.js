@@ -54,7 +54,10 @@
         toggles[key] = { set };
         return btn;
     };
-    bar.append($('span', { class: 'spacer' }),
+    // compile profile selector (only when pawn.json has compiler.profiles)
+    const profileSel = $('select', { class: 'profile', title: L.profileHint, style: 'display:none' });
+    profileSel.addEventListener('change', () => vscode.postMessage({ type: 'profile', text: profileSel.value }));
+    bar.append($('span', { class: 'spacer' }), profileSel,
         $('span', { class: 'switches' }, toggle('desktop', 'bell', L.notifyDesktop, L.notifyDesktopHint), toggle('sound', 'sound', L.notifySound, L.notifySoundHint)),
         $('button', { class: 'btn', onclick: () => vscode.postMessage({ type: 'command', command: 'pawnStudio.compile' }) }, `▶ ${L.compile}`),
         $('button', { class: 'btn secondary', onclick: () => vscode.postMessage({ type: 'command', command: 'pawnStudio.compileAll' }) }, L.compileAll));
@@ -104,6 +107,7 @@
             $('span', { class: 'icon' }, icon),
             $('span', { class: 'title' }, title),
             $('span', { class: 'muted' }, e.reason),
+            e.profile ? $('span', { class: 'badge', title: L.profile }, `⚙ ${e.profile}`) : null,
             $('span', { class: 'time' }, `${clock(e.at)}${e.durationMs !== undefined ? ' · ' + secs(e.durationMs) : ''}`)));
         if (e.state === 'running' || e.state === 'cancelled') return c;
 
@@ -164,6 +168,10 @@
             order.length = 0;
             for (const e of m.entries) { entries.set(e.id, e); order.push(e.id); }
             render();
+        } else if (m.type === 'profiles') {
+            profileSel.textContent = '';
+            for (const n of m.names) profileSel.append($('option', { value: n, selected: n === m.active }, `⚙ ${n}`));
+            profileSel.style.display = m.names.length ? '' : 'none';
         } else if (m.type === 'settings') {
             toggles.desktop.set(!!m.desktop);
             toggles.sound.set(!!m.sound);

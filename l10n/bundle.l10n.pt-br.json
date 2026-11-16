@@ -701,5 +701,11 @@
   "Pawn Studio": "Pawn Studio",
   "This is how a finished compilation is announced.": "É assim que o fim de uma compilação é avisado.",
   "on": "ligado",
-  "off": "desligado"
+  "off": "desligado",
+  "the compile profile ({0} → {1})": "o perfil de compilação ({0} → {1})",
+  "Compile profile": "Perfil de compilação",
+  "Click to choose another profile.": "Clique para escolher outro perfil.",
+  "This project has no compile profiles yet. Add \"profiles\" inside \"compiler\" in pawn.json (see the README).": "Este projeto ainda não tem perfis de compilação. Adicione \"profiles\" dentro de \"compiler\" no pawn.json (veja o README).",
+  "Compile once with the profile…": "Compilar uma vez com o perfil…",
+  "Profile used by Compile (compiler.profiles in pawn.json)": "Perfil usado pelo Compilar (compiler.profiles no pawn.json)"
 }

@@ -27,6 +27,7 @@ type Entry =
           kind: 'compile';
           id: number;
           jobId: number;
+          profile?: string;
           at: number;
           state: 'running' | 'ok' | 'fail' | 'cancelled';
           title: string;
@@ -72,6 +73,8 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             builder.onDidStartJob((j) => this.started(j)),
             builder.onDidCompile((r) => !r.background && this.finished(r)),
             builder.onDidCancel((c) => this.cancelled(c.jobId)),
+            pawn.onDidChangeProfile(() => this.postProfiles()),
+            pawn.onDidChangeProject(() => this.postProfiles()),
             vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration('pawnStudio.notify') && this.postSettings()),
             pawn.onLog((s) => this.log(s)),
             vscode.debug.registerDebugAdapterTrackerFactory('pawn', { createDebugAdapterTracker: (s) => this.tracker(s) }),
@@ -101,6 +104,7 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             kind: 'compile',
             id: this.nextId++,
             jobId: j.id,
+            profile: j.profile,
             at: Date.now(),
             state: 'running',
             title: kindLabel(j.target.kind),
@@ -175,6 +179,10 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             }
             notify(!failed.length, title, body, { desktop, sound });
         }, 700);
+    }
+
+    private postProfiles(): void {
+        void this.view?.webview.postMessage({ type: 'profiles', names: Object.keys(this.pawn.profiles()), active: this.pawn.activeProfile() });
     }
 
     private postSettings(): void {
@@ -296,6 +304,10 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             case 'ready':
                 void this.view?.webview.postMessage({ type: 'reset', entries: this.entries });
                 this.postSettings();
+                this.postProfiles();
+                return;
+            case 'profile':
+                if (m.text) await this.pawn.setActiveProfile(m.text);
                 return;
             case 'setting': {
                 const key = m.key === 'sound' ? 'notify.sound' : 'notify.desktop';
@@ -339,6 +351,8 @@ export class ConsoleView implements vscode.WebviewViewProvider, vscode.Disposabl
             failed: t('{0} failed'),
             cancelled: t('{0} cancelled: a new compilation started'),
             notifyDesktop: t('Notification'),
+            profile: t('Compile profile'),
+            profileHint: t('Profile used by Compile (compiler.profiles in pawn.json)'),
             on: t('on'),
             off: t('off'),
             notifyDesktopHint: t('Desktop notification when a compilation ends'),

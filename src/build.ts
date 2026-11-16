@@ -42,6 +42,8 @@ export interface CompileResult {
 }
 
 export interface CompileJobInfo {
+    /** compile profile in use (compiler.profiles), if the project has profiles */
+    profile?: string;
     /** unique per compilation: cancel / finish events carry the same id */
     id: number;
     target: Target;
@@ -71,6 +73,7 @@ export class Builder {
     private _onDidStart = new vscode.EventEmitter<Target>();
     readonly onDidStart = this._onDidStart.event;
     private jobSeq = 0;
+    private builtWith = new Map<string, string>();
     private _onDidCancel = new vscode.EventEmitter<{ target: Target; jobId: number }>();
     /** A real compilation was stopped because another one started. */
     readonly onDidCancel = this._onDidCancel.event;
@@ -247,6 +250,9 @@ export class Builder {
     }
 
     outputFor(entry: string): string {
+        // the active profile can send every .amx to its own folder (build/release/…)
+        const profileDir = this.pawn.projectCompiler().outputDir;
+        if (profileDir) return path.join(profileDir, path.basename(entry).replace(/\.[^.]+$/, '') + '.amx');
         const me = this.pawn.manifestEntry();
         if (me.entry && me.output && pathKey(me.entry) === pathKey(entry)) return me.output;
         const outDirSetting = cfg().get<string>('outputDirectory');
@@ -310,7 +316,7 @@ export class Builder {
         // the compile log goes to the output channel only: the Pawn Studio panel shows it as a card
         const log = pawn.rawOutput;
         if (!background) {
-            this._onDidStartJob.fire({ id: jobId, target, compiler, commandLine: job.commandLine, includeDirs, output: outFile });
+            this._onDidStartJob.fire({ id: jobId, profile: pawn.activeProfile(), target, compiler, commandLine: job.commandLine, includeDirs, output: outFile });
             log.appendLine('');
             log.appendLine(`[${new Date().toLocaleTimeString()}] ${t('Compiling {0} {1}  ({2})', kindLabel(target.kind).toLowerCase(), rel(target.entry), target.reason)}`);
             log.appendLine(`> ${job.commandLine}`);
@@ -375,6 +381,8 @@ export class Builder {
             exitCode: res.exitCode,
         };
         this._last = result;
+        // what the .amx was built with: starting the server rebuilds it when the profile changed
+        if (!background && ok) this.builtWith.set(pathKey(target.entry), pawn.activeProfile() ?? '');
         this._onDidCompile.fire(result);
 
         if (background) return result;
@@ -416,6 +424,9 @@ export class Builder {
         } catch {
             return { amx, changed: 'missing' };
         }
+        const was = this.builtWith.get(pathKey(target.entry));
+        const now = this.pawn.activeProfile() ?? '';
+        if (was !== undefined && was !== now) return { amx, builtAt: new Date(built), changed: t('the compile profile ({0} → {1})', was || '-', now || '-') };
         this.pawn.syncGraphIncludes(target.entry);
         const files = [target.entry, ...this.pawn.graph.closure(target.entry).values()];
         const dirty = new Set(vscode.workspace.textDocuments.filter((d) => d.isDirty).map((d) => d.uri.fsPath.toLowerCase()));
@@ -444,6 +455,16 @@ export class Builder {
     }
 
     // ───────────────────────── commands ─────────────────────────
+
+    /** Compiles once with another profile, without changing the active one. */
+    async compileWithProfile(file: string | undefined, profile: string): Promise<CompileResult | undefined> {
+        this.pawn.profileOverride = profile;
+        try {
+            return await this.compileActive(file);
+        } finally {
+            this.pawn.profileOverride = undefined;
+        }
+    }
 
     async compileActive(file: string | undefined): Promise<CompileResult | undefined> {
         if (cfg().get<boolean>('saveBeforeCompile')) await this.saveDirty();

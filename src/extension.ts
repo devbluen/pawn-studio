@@ -30,6 +30,46 @@ export function activate(context: vscode.ExtensionContext): void {
     const packagesView = new PackagesView(pawn, packages);
     const serverView = new ServerView(pawn);
     const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+    // active compile profile (only when pawn.json has compiler.profiles)
+    const profileItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49);
+    profileItem.command = 'pawnStudio.selectProfile';
+    context.subscriptions.push(profileItem);
+    const updateProfileItem = () => {
+        const name = pawn.activeProfile();
+        const doc = vscode.window.activeTextEditor?.document;
+        if (!name || !doc || !PAWN_EXT.test(doc.fileName)) return profileItem.hide();
+        const p = pawn.profiles()[name];
+        profileItem.text = `$(settings-gear) ${name}`;
+        profileItem.tooltip = new vscode.MarkdownString(
+            `**${t('Compile profile')}: ${name}**${p?.description ? `\n\n${p.description}` : ''}\n\n\`${pawn.compilerArgs().join(' ')}\`\n\n${t('Click to choose another profile.')}`,
+        );
+        profileItem.show();
+    };
+    context.subscriptions.push(pawn.onDidChangeProfile(updateProfileItem), pawn.onDidChangeProject(updateProfileItem), vscode.window.onDidChangeActiveTextEditor(updateProfileItem));
+    setTimeout(updateProfileItem, 500);
+    const pickProfile = async (title: string): Promise<string | undefined> => {
+        const profiles = pawn.profiles();
+        const names = Object.keys(profiles);
+        if (!names.length) {
+            const open = t('Open pawn.json');
+            const a = await vscode.window.showInformationMessage(t('This project has no compile profiles yet. Add "profiles" inside "compiler" in pawn.json (see the README).'), open);
+            const m = pawn.projectRoot();
+            if (a && m) await vscode.window.showTextDocument(vscode.Uri.file(path.join(m, 'pawn.json')));
+            return undefined;
+        }
+        const active = pawn.activeProfile();
+        const items = names.map((n) => {
+            const p = profiles[n];
+            const defines = Object.entries(p.defines ?? {}).filter(([, v]) => v !== false).map(([k, v]) => (v === true ? `${k}=1` : `${k}=${v}`));
+            return {
+                label: `${n === active ? '$(check) ' : '$(blank) '}${n}`,
+                description: p.description,
+                detail: [p.args ? p.args.join(' ') : '', defines.length ? defines.join(' ') : '', p.outputDir ? `→ ${p.outputDir}` : ''].filter(Boolean).join('   ') || undefined,
+                name: n,
+            };
+        });
+        return (await vscode.window.showQuickPick(items, { title }))?.name;
+    };
     const sub = context.subscriptions;
 
     // ───────────── context keys (welcome views, menus) ─────────────
@@ -151,6 +191,14 @@ export function activate(context: vscode.ExtensionContext): void {
     registerTools(context);
 
     reg('pawnStudio.compile', () => b.compileActive(activeFile()));
+    reg('pawnStudio.selectProfile', async () => {
+        const name = await pickProfile(t('Compile profile'));
+        if (name) await pawn.setActiveProfile(name);
+    });
+    reg('pawnStudio.compileWithProfile', async () => {
+        const name = await pickProfile(t('Compile once with the profile…'));
+        if (name) return b.compileWithProfile(activeFile(), name);
+    });
     reg('pawnStudio.compileFile', () => {
         const f = activeFile();
         if (f) return b.compileFileDirect(f);

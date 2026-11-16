@@ -81,3 +81,5 @@ details summary { cursor: pointer; color: var(--muted); font-size: .9em; user-se
 .switch.on svg { color: var(--vscode-button-background); }
 .switch.on .track { background: var(--vscode-button-background); border-color: var(--vscode-button-background); }
 .switch.on .knob { transform: translateX(11px); background: var(--vscode-button-foreground, #fff); }
+.badge { font-size: .8em; padding: 0 7px; border-radius: 9px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
+.bar select.profile { background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border, var(--border)); border-radius: 3px; padding: 2px 6px; font: inherit; font-size: .9em; margin-right: 8px; }

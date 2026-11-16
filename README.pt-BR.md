@@ -558,6 +558,37 @@ instalação mostra essa linha para o outro sistema.
 Eles têm prioridade sobre as configurações `pawnStudio.compilerPath`, `pawnStudio.args` e
 `pawnStudio.includePaths`.
 
+**Perfis de compilação** — quando um projeto é compilado de mais de um jeito (debug e release, uma build
+de teste com um define a mais…), dê um nome a cada jeito dentro de `compiler.profiles`:
+
+```json
+{
+	"compiler": {
+		"args": ["-d3", "-;+", "-(+"],
+		"profiles": {
+			"debug":   { "description": "Com informação de debug", "defines": { "DEBUG": true } },
+			"release": { "description": "Otimizado, para a hospedagem", "args": ["-d0", "-O1", "-;+", "-(+"], "outputDir": "build/release" },
+			"teste":   { "defines": { "RUN_TESTS": 1 } }
+		}
+	}
+}
+```
+
+| Campo do perfil | O que faz |
+|---|---|
+| `args` | as opções do pawncc deste perfil (no lugar de `compiler.args`) |
+| `defines` | símbolos para `#if defined` / `#if`: `{ "DEBUG": true }` → `DEBUG=1`, `{ "MAX_HOUSES": 500 }` → `MAX_HOUSES=500` |
+| `includes` | pastas de include a mais |
+| `outputDir` | pasta do `.amx` deste perfil |
+| `description` | aparece na hora de escolher |
+
+- Escolha o perfil ativo na barra de status (**⚙ debug**, ao lado do alvo), no seletor no topo do painel
+  **Pawn Studio** ou com **Pawn: Escolher perfil de compilação**. A escolha fica salva por projeto;
+  `"profile": "release"` dentro de `compiler` define o usado antes de qualquer escolha.
+- **Pawn: Compilar com perfil…** compila uma vez com outro perfil, sem trocar o ativo.
+- Cada cartão de compilação no painel Pawn Studio mostra o perfil usado, e iniciar o servidor compila de
+  novo quando o `.amx` foi gerado com outro perfil.
+
 ---
 
 ## Ferramentas: objetos, sprites, animações, sons e dialogs

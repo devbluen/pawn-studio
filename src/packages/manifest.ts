@@ -36,8 +36,28 @@ export interface PawnJson {
     /** Where packages are installed: server, os, arch, variant (default: detected). */
     target?: TargetSpec;
     /** Compiler for this project (wins over the pawnStudio.* settings). Paths are relative to pawn.json. */
-    compiler?: { path?: string; args?: string[]; includes?: string[] };
+    compiler?: {
+        path?: string;
+        args?: string[];
+        includes?: string[];
+        /** named ways of compiling (debug, release…): each one can change args, defines, includes and outputDir */
+        profiles?: Record<string, CompileProfile>;
+        /** profile used until one is chosen in the editor */
+        profile?: string;
+    };
     [k: string]: unknown;
+}
+
+export interface CompileProfile {
+    description?: string;
+    /** replaces compiler.args */
+    args?: string[];
+    /** symbols passed to pawncc as NAME=value (true = just NAME) */
+    defines?: Record<string, string | number | boolean>;
+    /** extra include folders (after compiler.includes) */
+    includes?: string[];
+    /** folder for the .amx of this profile (relative to pawn.json) */
+    outputDir?: string;
 }
 
 export interface LockEntry {

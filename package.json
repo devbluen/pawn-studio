@@ -2,7 +2,7 @@
   "name": "pawn-studio",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.9.3",
+  "version": "1.10.0",
   "publisher": "devbluen",
   "license": "MIT",
   "repository": {
@@ -283,6 +283,18 @@
         "title": "%command.packages.check%",
         "category": "Pawn",
         "icon": "$(checklist)"
+      },
+      {
+        "command": "pawnStudio.selectProfile",
+        "title": "%command.selectProfile%",
+        "category": "Pawn",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "pawnStudio.compileWithProfile",
+        "title": "%command.compileWithProfile%",
+        "category": "Pawn",
+        "icon": "$(run-below)"
       }
     ],
     "keybindings": [
@@ -502,6 +514,16 @@
         {
           "command": "pawnStudio.packages.check",
           "when": "view == pawnStudio.packages",
+          "group": "1_more"
+        },
+        {
+          "command": "pawnStudio.selectProfile",
+          "when": "view == pawnStudio.compile",
+          "group": "1_more"
+        },
+        {
+          "command": "pawnStudio.compileWithProfile",
+          "when": "view == pawnStudio.compile",
           "group": "1_more"
         }
       ],

@@ -262,6 +262,22 @@ exports.run = async function () {
         for (const c of ['open', 'objects', 'sprites', 'animations', 'sounds', 'dialog', 'attach', 'gangzone', 'selectGta']) assert.ok(cmds.includes(`pawnStudio.tools.${c}`), c);
     });
 
+    await step('compile profiles: the active profile adds its defines and writes the .amx to its folder', async () => {
+        const manifest = P('pawn.json');
+        const prof = P('gamemodes', 'prof.pwn');
+        fs.writeFileSync(manifest, JSON.stringify({ compiler: { profile: 'release', profiles: { debug: {}, release: { defines: { RELEASE_BUILD: true }, outputDir: 'build/release' } } } }));
+        fs.writeFileSync(prof, '#if !defined RELEASE_BUILD\n    #error RELEASE_BUILD was not passed to pawncc\n#endif\nmain() {}\n');
+        try {
+            await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(prof));
+            await vscode.commands.executeCommand('pawnStudio.compileFile');
+            assert.ok(fs.existsSync(P('build', 'release', 'prof.amx')), 'build/release/prof.amx (define + output folder of the profile)');
+        } finally {
+            fs.rmSync(manifest, { force: true });
+            fs.rmSync(prof, { force: true });
+            fs.rmSync(P('build'), { recursive: true, force: true });
+        }
+    });
+
     console.log('\n' + results.join('\n'));
     const failed = results.filter((r) => r.includes('FAILED'));
     console.log(`\n${results.length - failed.length}/${results.length} steps in VS Code`);

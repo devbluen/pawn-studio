@@ -555,6 +555,37 @@ shows that line for the other system.
 **`compiler`** — `path` of pawncc, `args` and extra `includes` (paths relative to `pawn.json`). They win
 over the `pawnStudio.compilerPath`, `pawnStudio.args` and `pawnStudio.includePaths` settings.
 
+**Compile profiles** — when a project is compiled in more than one way (debug and release, a test
+build with an extra define…), give each way a name inside `compiler.profiles`:
+
+```json
+{
+	"compiler": {
+		"args": ["-d3", "-;+", "-(+"],
+		"profiles": {
+			"debug":   { "description": "With debug info", "defines": { "DEBUG": true } },
+			"release": { "description": "Optimized, for the host", "args": ["-d0", "-O1", "-;+", "-(+"], "outputDir": "build/release" },
+			"test":    { "defines": { "RUN_TESTS": 1 } }
+		}
+	}
+}
+```
+
+| Profile field | What it does |
+|---|---|
+| `args` | the pawncc options of this profile (instead of `compiler.args`) |
+| `defines` | symbols for `#if defined` / `#if`: `{ "DEBUG": true }` → `DEBUG=1`, `{ "MAX_HOUSES": 500 }` → `MAX_HOUSES=500` |
+| `includes` | extra include folders |
+| `outputDir` | folder for the `.amx` of this profile |
+| `description` | shown when choosing |
+
+- Choose the active profile in the status bar (**⚙ debug**, next to the target), in the selector at the top
+  of the **Pawn Studio** panel or with **Pawn: Choose compile profile**. The choice is remembered per
+  project; `"profile": "release"` inside `compiler` sets the one used before any choice.
+- **Pawn: Compile with profile…** compiles once with another profile, without changing the active one.
+- Each compilation card in the Pawn Studio panel shows the profile it used, and starting the server
+  compiles again when the `.amx` was built with another profile.
+
 ---
 
 ## Tools: objects, sprites, animations, sounds and dialogs

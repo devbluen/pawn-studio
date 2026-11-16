@@ -344,6 +344,88 @@
             "type": "string"
           },
           "description": "Extra include folders (before the pawnStudio.includePaths setting)."
+        },
+        "profiles": {
+          "type": "object",
+          "description": "Named ways of compiling (debug, release…). Choose the active one in the status bar or the Pawn Studio panel; it is remembered per project.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "Shown when choosing the profile."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "pawncc options of this profile (replace compiler.args).",
+                "examples": [
+                  [
+                    "-d0",
+                    "-O1",
+                    "-;+",
+                    "-(+"
+                  ]
+                ]
+              },
+              "defines": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "description": "Symbols passed as NAME=value (true = just NAME), e.g. { \"DEBUG\": 1 }."
+              },
+              "includes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Extra include folders for this profile."
+              },
+              "outputDir": {
+                "type": "string",
+                "description": "Folder for the .amx of this profile, relative to pawn.json (e.g. \"build/release\")."
+              }
+            }
+          },
+          "defaultSnippets": [
+            {
+              "label": "debug + release",
+              "body": {
+                "debug": {
+                  "description": "With debug info",
+                  "args": [
+                    "-d3",
+                    "-;+",
+                    "-(+"
+                  ],
+                  "defines": {
+                    "DEBUG": 1
+                  }
+                },
+                "release": {
+                  "description": "Optimized",
+                  "args": [
+                    "-d0",
+                    "-O1",
+                    "-;+",
+                    "-(+"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "profile": {
+          "type": "string",
+          "description": "Profile used until another one is chosen in the editor (default: the first one)."
         }
       }
     },
